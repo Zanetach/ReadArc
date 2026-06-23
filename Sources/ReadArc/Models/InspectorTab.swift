@@ -8,13 +8,25 @@ enum InspectorTab: String, CaseIterable, Identifiable {
     var id: Self { self }
 
     var title: String {
+        title(language: .english)
+    }
+
+    func title(language: AppLanguage) -> String {
+        language.text(titleKey)
+    }
+
+    func summary(language: AppLanguage) -> String {
+        language.text(summaryKey)
+    }
+
+    private var titleKey: String {
         switch self {
         case .search:
-            return "Search"
+            return "inspector.search"
         case .outline:
-            return "Outline"
+            return "inspector.outline"
         case .notes:
-            return "Notes"
+            return "inspector.notes"
         }
     }
 
@@ -29,14 +41,14 @@ enum InspectorTab: String, CaseIterable, Identifiable {
         }
     }
 
-    var summary: String {
+    private var summaryKey: String {
         switch self {
         case .search:
-            return "Search matches and evidence in the current PDF."
+            return "inspector.search.summary"
         case .outline:
-            return "Navigate the document structure and page outline."
+            return "inspector.outline.summary"
         case .notes:
-            return "Review page-linked notes and annotations."
+            return "inspector.notes.summary"
         }
     }
 }

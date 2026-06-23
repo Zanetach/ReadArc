@@ -1,9 +1,8 @@
+import AppKit
 import SwiftUI
 
 struct ReaderToolbar: View {
     @ObservedObject var model: ReaderModel
-    let isCollapsed: Bool
-    let toggleCollapsed: () -> Void
     @AppStorage("appearanceMode") private var appearanceModeRaw = AppAppearanceMode.system.rawValue
     @AppStorage("appLanguage") private var languageRaw = AppLanguage.system.rawValue
 
@@ -18,92 +17,32 @@ struct ReaderToolbar: View {
                 .fill(NativeProTheme.separator)
                 .frame(height: 1)
         }
-        .animation(.easeInOut(duration: 0.16), value: isCollapsed)
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded {
+                    NSApp.keyWindow?.performZoom(nil)
+                }
+        )
     }
 
     private var toolbarHeight: CGFloat {
-        if model.hasDocument && isCollapsed {
-            return 36
-        }
-        return model.hasDocument ? 64 : 48
+        return 72
     }
 
     @ViewBuilder
     private func toolbarContent(width: CGFloat) -> some View {
-        if model.hasDocument && isCollapsed {
-            collapsedToolbarContent(width: width)
-        } else if !model.hasDocument {
-            emptyToolbarContent(width: width)
-        } else if width < 980 {
+        if width < 980 {
             compactToolbarContent(width: width)
         } else {
             regularToolbarContent(width: width)
         }
     }
 
-    private func collapsedToolbarContent(width: CGFloat) -> some View {
-        HStack(spacing: 8) {
-            ToolbarIconButton(
-                title: "Expand Toolbar",
-                systemImage: "chevron.down",
-                isDisabled: false
-            ) {
-                toggleCollapsed()
-            }
-
-            ToolbarMetricText(model.pageLabel, minWidth: 72)
-
-            if width >= 620 {
-                ToolbarMetricText(model.scaleLabel, minWidth: 54)
-            }
-
-            Spacer(minLength: 8)
-
-            if width >= 760 {
-                Text(model.documentTitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(NativeProTheme.muted)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: min(360, width * 0.35), alignment: .trailing)
-            }
-
-            ToolbarIconButton(
-                title: model.isInspectorVisible && model.rightPanelMode == .inspector ? "Hide Inspector" : "Show Inspector",
-                systemImage: "sidebar.trailing",
-                isDisabled: false
-            ) {
-                model.toggleInspectorPanel()
-            }
-        }
-        .padding(.horizontal, width < 680 ? 8 : 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func emptyToolbarContent(width: CGFloat) -> some View {
-        HStack(spacing: 10) {
-            Spacer(minLength: 0)
-
-            ToolbarPreferenceSwitches(
-                appearanceMode: appearanceMode,
-                appLanguage: appLanguage,
-                compact: width < 760
-            )
-
-            ToolbarIconButton(
-                title: model.isInspectorVisible ? "Hide Inspector" : "Show Inspector",
-                systemImage: "sidebar.trailing",
-                isDisabled: false
-            ) {
-                model.toggleInspectorPanel()
-            }
-        }
-        .padding(.horizontal, width < 680 ? 8 : 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private func regularToolbarContent(width: CGFloat) -> some View {
-        HStack(spacing: width < 720 ? 6 : 10) {
+        HStack(spacing: width < 720 ? 8 : 12) {
+            Color.clear
+                .frame(width: 68)
+
             leftGroup(compact: width < 620)
                 .layoutPriority(2)
 
@@ -122,8 +61,11 @@ struct ReaderToolbar: View {
     }
 
     private func compactToolbarContent(width: CGFloat) -> some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 6) {
             HStack(spacing: 6) {
+                Color.clear
+                    .frame(width: 64)
+
                 leftGroup(compact: true)
 
                 if width >= 760 {
@@ -134,27 +76,14 @@ struct ReaderToolbar: View {
 
                 Spacer(minLength: 6)
 
-                ToolbarPreferenceSwitches(
-                    appearanceMode: appearanceMode,
-                    appLanguage: appLanguage,
-                    compact: true
-                )
-
                 ToolbarIconButton(
-                    title: model.isInspectorVisible ? "Hide Inspector" : "Show Inspector",
+                    title: model.isInspectorVisible ? "Hide Panel" : "Show Panel",
                     systemImage: "sidebar.trailing",
                     isDisabled: false
                 ) {
                     model.toggleInspectorPanel()
                 }
 
-                ToolbarIconButton(
-                    title: "Collapse Toolbar",
-                    systemImage: "chevron.up",
-                    isDisabled: false
-                ) {
-                    toggleCollapsed()
-                }
             }
 
             HStack(spacing: 6) {
@@ -185,7 +114,7 @@ struct ReaderToolbar: View {
     }
 
     private func leftGroup(compact: Bool) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             ToolbarIconButton(title: "Previous Page", systemImage: "chevron.left", isDisabled: !model.hasDocument) {
                 model.send(.previousPage)
             }
@@ -200,7 +129,7 @@ struct ReaderToolbar: View {
     }
 
     private var centerGroup: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             ToolbarIconButton(title: "Zoom Out", systemImage: "minus.magnifyingglass", isDisabled: !model.hasDocument) {
                 model.send(.zoomOut)
             }
@@ -236,7 +165,7 @@ struct ReaderToolbar: View {
     }
 
     private func rightGroup(width: CGFloat) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             ToolbarSearchField(
                 text: $model.searchText,
                 width: searchFieldWidth(for: width),
@@ -259,27 +188,14 @@ struct ReaderToolbar: View {
                 }
             }
 
-            ToolbarPreferenceSwitches(
-                appearanceMode: appearanceMode,
-                appLanguage: appLanguage,
-                compact: width < 760
-            )
-
             ToolbarIconButton(
-                title: model.isInspectorVisible && model.rightPanelMode == .inspector ? "Hide Inspector" : "Show Inspector",
+                title: model.isInspectorVisible ? "Hide Panel" : "Show Panel",
                 systemImage: "sidebar.trailing",
                 isDisabled: false
             ) {
                 model.toggleInspectorPanel()
             }
 
-            ToolbarIconButton(
-                title: "Collapse Toolbar",
-                systemImage: "chevron.up",
-                isDisabled: false
-            ) {
-                toggleCollapsed()
-            }
         }
         .frame(minWidth: 0, alignment: .trailing)
     }
@@ -320,11 +236,11 @@ private struct ToolbarIconButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: 28, height: 28)
-                .background(NativeProTheme.panel.opacity(0.62), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .frame(width: 42, height: 42)
+                .background(NativeProTheme.panel.opacity(0.86), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(NativeProTheme.separator, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(NativeProTheme.separator.opacity(1.25), lineWidth: 1)
                 }
         }
         .buttonStyle(.borderless)
@@ -351,9 +267,9 @@ private struct ToolbarMetricText: View {
             .font(.system(size: 11, weight: .medium, design: .monospaced))
             .foregroundStyle(NativeProTheme.muted)
             .frame(minWidth: minWidth)
-            .padding(.horizontal, 7)
-            .frame(height: 23)
-            .background(NativeProTheme.tile.opacity(0.58), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .padding(.horizontal, 10)
+            .frame(height: 38)
+            .background(NativeProTheme.tile.opacity(0.74), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
     }
 }
 
@@ -377,11 +293,11 @@ private struct ToolbarSearchField: View {
                 .onSubmit(submit)
         }
         .padding(.horizontal, 9)
-        .frame(height: 28)
-        .background(NativeProTheme.panel.opacity(0.72), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .frame(height: 42)
+        .background(NativeProTheme.panel.opacity(0.82), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .stroke(NativeProTheme.separator, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .stroke(NativeProTheme.separator.opacity(1.2), lineWidth: 1)
         }
         .opacity(isDisabled ? 0.48 : 1)
     }
@@ -424,9 +340,10 @@ private struct ToolbarPreferenceSwitches: View {
                 }
             }
             .padding(2)
-            .background(NativeProTheme.tile.opacity(0.62), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .frame(height: 40)
+            .background(NativeProTheme.tile.opacity(0.68), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(NativeProTheme.separator, lineWidth: 1)
             }
             .help(language.text("appearance"))
@@ -451,9 +368,10 @@ private struct ToolbarPreferenceSwitches: View {
                 }
             }
             .padding(2)
-            .background(NativeProTheme.tile.opacity(0.62), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .frame(height: 40)
+            .background(NativeProTheme.tile.opacity(0.68), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(NativeProTheme.separator, lineWidth: 1)
             }
             .help(language.text("language"))
@@ -487,9 +405,9 @@ private struct ToolbarSegmentButton: View {
                         .font(.system(size: 10, weight: .bold))
                 }
             }
-            .frame(width: text == nil ? 24 : 28, height: 20)
+            .frame(width: text == nil ? 28 : 32, height: 28)
             .foregroundStyle(isActive ? NativeProTheme.primaryButtonText : NativeProTheme.muted)
-            .background(isActive ? NativeProTheme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .background(isActive ? NativeProTheme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
         .help(title)

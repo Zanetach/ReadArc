@@ -186,15 +186,6 @@ package_final_zip() {
   ASSETS+=("$FINAL_ZIP" "$FINAL_ZIP.sha256")
 }
 
-render_dmg_background() {
-  local output_path="$1"
-
-  if ! /usr/bin/sips -s format png "$DMG_BACKGROUND_SVG" --out "$output_path" >/dev/null; then
-    echo "failed to render DMG background with sips" >&2
-    exit 1
-  fi
-}
-
 package_final_dmg() {
   local staging_dir
   local rw_dmg

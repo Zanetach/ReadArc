@@ -25,6 +25,7 @@ struct ReadArcApp: App {
         WindowGroup("ReadArc") {
             ContentView(model: model)
                 .frame(minWidth: 900, minHeight: 560)
+                .background(WindowConfigurator())
                 .environment(\.appLanguage, language)
                 .preferredColorScheme(resolvedColorScheme)
                 .onAppear {
@@ -41,6 +42,7 @@ struct ReadArcApp: App {
                     AppAppearanceController.apply(appearanceMode)
                 }
         }
+        .windowStyle(.hiddenTitleBar)
         .commands {
             ReadArcCommands(model: model, language: language)
         }
@@ -186,7 +188,7 @@ struct ReadArcCommands: Commands {
 
             Divider()
 
-            Button(model.isInspectorVisible && model.rightPanelMode == .inspector ? "Hide Inspector" : "Show Inspector") {
+            Button(model.isInspectorVisible ? "Hide Panel" : "Show Panel") {
                 model.toggleInspectorPanel()
             }
             .keyboardShortcut("i", modifiers: [.command, .option])

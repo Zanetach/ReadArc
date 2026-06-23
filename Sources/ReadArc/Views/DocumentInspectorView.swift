@@ -2,14 +2,15 @@ import SwiftUI
 
 struct DocumentInspectorView: View {
     @ObservedObject var model: ReaderModel
+    let modeSwitcher: AnyView
     @Environment(\.appLanguage) private var language
 
     var body: some View {
         VStack(spacing: 0) {
             header
                 .padding(.horizontal, 18)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
 
             currentSectionHeader
 
@@ -19,13 +20,13 @@ struct DocumentInspectorView: View {
                         DocumentMetricsPanel(model: model)
                         SynthesisPanel(model: model)
 
-                        switch model.inspectorTab {
-                        case .search:
-                            SearchMatchesPanel(model: model)
-                        case .outline:
-                            OutlinePanel(model: model)
-                        case .notes:
+                        switch model.rightPanelMode {
+                        case .focus:
                             NotesPanel(model: model)
+                        case .research:
+                            researchPanels
+                        case .chat:
+                            EmptyView()
                         }
 
                         FileLocationPanel(model: model)
@@ -36,41 +37,25 @@ struct DocumentInspectorView: View {
                 .padding(14)
             }
         }
-        .background(inspectorBackground)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(width: 1)
-        }
     }
 
     private var header: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 12) {
-                headerText
-
-                Spacer(minLength: 8)
-
-                readerModePicker
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                headerText
-                readerModePicker
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            modeSwitcher
+            headerText
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var headerText: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(language.text("inspector.title"))
+            Text(model.rightPanelMode.title(language: language))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(NativeProTheme.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
 
-            Text(language.text("inspector.subtitle"))
+            Text(model.rightPanelMode.subtitle(language: language))
                 .font(.system(size: 11))
                 .foregroundStyle(NativeProTheme.muted)
                 .lineLimit(1)
@@ -79,22 +64,9 @@ struct DocumentInspectorView: View {
         .frame(minWidth: 88, maxWidth: .infinity, alignment: .leading)
     }
 
-    private var readerModePicker: some View {
-        Picker("Reader Mode", selection: $model.readerMode) {
-            ForEach(ReaderMode.allCases) { mode in
-                Text(mode.title)
-                    .tag(mode)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .controlSize(.mini)
-        .frame(width: 148)
-    }
-
     private var currentSectionHeader: some View {
         HStack(spacing: 9) {
-            Image(systemName: model.inspectorTab.systemImage)
+            Image(systemName: sectionIcon)
                 .font(.system(size: 13, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(NativeProTheme.accent)
@@ -102,11 +74,11 @@ struct DocumentInspectorView: View {
                 .background(NativeProTheme.selection.opacity(0.82), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(model.inspectorTab.title)
+                Text(sectionTitle)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(NativeProTheme.ink)
 
-                Text(model.inspectorTab.summary)
+                Text(sectionSummary)
                     .font(.system(size: 11))
                     .foregroundStyle(NativeProTheme.muted)
                     .lineLimit(1)
@@ -117,15 +89,19 @@ struct DocumentInspectorView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(height: 1)
-        }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(height: 1)
+        .background(NativeProTheme.tile.opacity(0.48), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var researchPanels: some View {
+        if model.inspectorTab == .outline {
+            OutlinePanel(model: model)
+            SearchMatchesPanel(model: model)
+        } else {
+            SearchMatchesPanel(model: model)
+            OutlinePanel(model: model)
         }
     }
 
@@ -138,48 +114,74 @@ struct DocumentInspectorView: View {
         .frame(maxWidth: .infinity, minHeight: 260)
     }
 
-    private var inspectorBackground: Color {
-        switch model.readerMode {
-        case .nativePro, .focus:
-            return NativeProTheme.inspector
+    private var sectionIcon: String {
+        switch model.rightPanelMode {
+        case .focus:
+            return RightPanelMode.focus.systemImage
         case .research:
-            return NativeProTheme.inspectorResearch
+            return model.inspectorTab.systemImage
+        case .chat:
+            return RightPanelMode.chat.systemImage
+        }
+    }
+
+    private var sectionTitle: String {
+        switch model.rightPanelMode {
+        case .focus:
+            return language.text("panel.focus.current")
+        case .research:
+            return model.inspectorTab.title(language: language)
+        case .chat:
+            return RightPanelMode.chat.title(language: language)
+        }
+    }
+
+    private var sectionSummary: String {
+        switch model.rightPanelMode {
+        case .focus:
+            return language.text("panel.focus.summary")
+        case .research:
+            return model.inspectorTab.summary(language: language)
+        case .chat:
+            return RightPanelMode.chat.subtitle(language: language)
         }
     }
 }
 
 private struct DocumentMetricsPanel: View {
     @ObservedObject var model: ReaderModel
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 7), count: 4), spacing: 7) {
-            MetricTile(value: "\(model.pageCount)", label: "pages")
-            MetricTile(value: model.searchLabel, label: "matches")
-            MetricTile(value: "\(model.outlineItems.count)", label: "outline")
-            MetricTile(value: model.fileSizeLabel, label: "size")
+            MetricTile(value: "\(model.pageCount)", label: language.text("inspector.metric.pages"))
+            MetricTile(value: model.searchLabel, label: language.text("inspector.metric.matches"))
+            MetricTile(value: "\(model.outlineItems.count)", label: language.text("inspector.metric.outline"))
+            MetricTile(value: model.fileSizeLabel, label: language.text("inspector.metric.size"))
         }
     }
 }
 
 private struct SynthesisPanel: View {
     @ObservedObject var model: ReaderModel
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
-        InspectorPanel(title: "Summary", trailing: model.hasDocument ? "page \(model.pageIndex + 1)" : nil) {
+        InspectorPanel(title: language.text("inspector.summary"), trailing: model.hasDocument ? String(format: language.text("inspector.page"), model.pageIndex + 1) : nil) {
             VStack(alignment: .leading, spacing: 7) {
-                Text(model.hasDocument ? currentHeadline : "Open a PDF to inspect its structure.")
+                Text(model.hasDocument ? currentHeadline : language.text("inspector.summary.empty.title"))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(NativeProTheme.ink)
 
-                Text(model.hasDocument ? currentSummary : "Search results, outline, file metadata, and notes will appear here.")
+                Text(model.hasDocument ? currentSummary : language.text("inspector.summary.empty.body"))
                     .font(.system(size: 12))
                     .foregroundStyle(NativeProTheme.ink.opacity(0.76))
                     .lineLimit(2)
 
                 if model.hasDocument {
                     HStack(spacing: 6) {
-                        TagLabel("page \(model.pageIndex + 1)")
-                        TagLabel(model.readerMode.title.lowercased())
+                        TagLabel(String(format: language.text("inspector.page"), model.pageIndex + 1))
+                        TagLabel(model.rightPanelMode.title(language: language).lowercased())
                     }
                 }
             }
@@ -188,39 +190,42 @@ private struct SynthesisPanel: View {
 
     private var currentHeadline: String {
         if model.isSearching {
-            return "Searching current PDF."
+            return language.text("inspector.summary.searching.title")
         }
-        return model.searchResults.isEmpty ? "Ready for focused reading." : "Search trail ready."
+        return model.searchResults.isEmpty
+            ? language.text("inspector.summary.ready.title")
+            : language.text("inspector.summary.results.title")
     }
 
     private var currentSummary: String {
         if model.isSearching {
-            return "Indexing text in the background so reading stays responsive."
+            return language.text("inspector.summary.searching.body")
         }
         if model.searchResults.isEmpty {
-            return "Use search to create page-linked evidence while keeping the PDF in view."
+            return language.text("inspector.summary.ready.body")
         }
         return model.isSearchTruncated
-            ? "Showing the first \(model.searchResults.count) matches to keep memory usage stable."
-            : "\(model.searchResults.count) matches are indexed for quick page navigation."
+            ? String(format: language.text("inspector.summary.results.truncated"), model.searchResults.count)
+            : String(format: language.text("inspector.summary.results.body"), model.searchResults.count)
     }
 }
 
 private struct SearchMatchesPanel: View {
     @ObservedObject var model: ReaderModel
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
-        InspectorPanel(title: "Search Matches") {
+        InspectorPanel(title: language.text("inspector.searchMatches")) {
             if model.isSearching {
-                Text("Searching in the background...")
+                Text(language.text("inspector.search.searching"))
                     .font(.caption)
                     .foregroundStyle(NativeProTheme.muted)
             } else if model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("Use search to list matches here.")
+                Text(language.text("inspector.search.empty"))
                     .font(.caption)
                     .foregroundStyle(NativeProTheme.muted)
             } else if model.searchMatches.isEmpty {
-                Text("No matches for \"\(model.searchText)\".")
+                Text(String(format: language.text("inspector.search.noResults"), model.searchText))
                     .font(.caption)
                     .foregroundStyle(NativeProTheme.muted)
             } else {
@@ -261,11 +266,12 @@ private struct SearchMatchesPanel: View {
 
 private struct OutlinePanel: View {
     @ObservedObject var model: ReaderModel
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
-        InspectorPanel(title: "Outline") {
+        InspectorPanel(title: language.text("inspector.outline")) {
             if model.outlineItems.isEmpty {
-                Text("This PDF does not expose an outline.")
+                Text(language.text("inspector.outline.empty"))
                     .font(.caption)
                     .foregroundStyle(NativeProTheme.muted)
             } else {
@@ -299,9 +305,10 @@ private struct OutlinePanel: View {
 
 private struct FileLocationPanel: View {
     @ObservedObject var model: ReaderModel
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
-        InspectorPanel(title: "File") {
+        InspectorPanel(title: language.text("inspector.file")) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(model.documentTitle)
                     .font(.caption.weight(.semibold))
@@ -319,15 +326,16 @@ private struct FileLocationPanel: View {
 
 private struct NotesPanel: View {
     @ObservedObject var model: ReaderModel
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
-        InspectorPanel(title: "Notes") {
+        InspectorPanel(title: language.text("inspector.notes")) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Page \(max(model.pageIndex + 1, 1))")
+                Text(String(format: language.text("inspector.page"), max(model.pageIndex + 1, 1)))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(NativeProTheme.ink)
 
-                Text("Notes will support page-linked annotations in the next pass.")
+                Text(language.text("inspector.note.placeholder"))
                     .font(.system(size: 12))
                     .foregroundStyle(NativeProTheme.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -368,9 +376,9 @@ private struct InspectorPanel<Content: View>: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(NativeProTheme.panel.opacity(0.78), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(NativeProTheme.panel.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(NativeProTheme.separator)
         }
     }
@@ -393,7 +401,7 @@ private struct MetricTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
-        .background(NativeProTheme.tile.opacity(0.74), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(NativeProTheme.tile.opacity(0.74), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

@@ -4,12 +4,14 @@ import SwiftUI
 
 struct AgentChatView: View {
     @ObservedObject var model: ReaderModel
+    let modeSwitcher: AnyView
     @State private var draftMessage = ""
     @State private var activeTask: Task<Void, Never>?
     @State private var availability: [ChatAgentProvider: AgentAvailability] = [:]
     @Environment(\.appLanguage) private var language
     private let streamFlushInterval: TimeInterval = 0.05
     private let streamFlushCharacterLimit = 640
+    private let streamedMessageCharacterLimit = 80_000
     private let transcriptMessageLimit = 14
     private let transcriptMessageCharacterLimit = 2_400
 
@@ -17,8 +19,8 @@ struct AgentChatView: View {
         VStack(spacing: 0) {
             header
                 .padding(.horizontal, 18)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
 
             agentSwitcher
 
@@ -46,12 +48,6 @@ struct AgentChatView: View {
 
             composer
         }
-        .background(NativeProTheme.inspector)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(width: 1)
-        }
         .onDisappear {
             stopStreaming()
         }
@@ -61,29 +57,34 @@ struct AgentChatView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(language.text("chat.title"))
+        VStack(alignment: .leading, spacing: 12) {
+            modeSwitcher
+
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: "bubble.left.and.bubble.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(NativeProTheme.ink)
+                    .foregroundStyle(NativeProTheme.accent)
+                    .frame(width: 30, height: 30)
+                    .background(NativeProTheme.selection.opacity(0.86), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
 
-                Text(language.text("chat.subtitle"))
-                    .font(.system(size: 12))
-                    .foregroundStyle(NativeProTheme.muted)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(language.text("chat.title"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(NativeProTheme.ink)
+
+                    Text(language.text("chat.subtitle"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(NativeProTheme.muted)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
             }
-
-            Spacer(minLength: 0)
-
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(NativeProTheme.accent)
-                .frame(width: 28, height: 28)
-                .background(NativeProTheme.selection.opacity(0.86), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
     }
 
     private var agentSwitcher: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Picker("Agent", selection: $model.selectedChatAgent) {
                 ForEach(ChatAgentProvider.allCases) { agent in
                     Label(agent.pickerTitle, systemImage: agent.systemImage)
@@ -100,23 +101,26 @@ struct AgentChatView: View {
                     language: language
                 )
                 Spacer(minLength: 0)
-                Text("PDF")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(model.hasDocument ? NativeProTheme.success : NativeProTheme.muted)
+                HStack(spacing: 5) {
+                    Image(systemName: model.hasDocument ? "doc.richtext.fill" : "doc")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("PDF")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(model.hasDocument ? NativeProTheme.success : NativeProTheme.muted)
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .background(model.hasDocument ? NativeProTheme.selection.opacity(0.72) : NativeProTheme.panel.opacity(0.52), in: Capsule())
             }
         }
+        .padding(12)
+        .background(NativeProTheme.panel.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(NativeProTheme.separator.opacity(1.2))
+        }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(height: 1)
-        }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(height: 1)
-        }
+        .padding(.bottom, 10)
     }
 
     private var contextPanel: some View {
@@ -146,9 +150,9 @@ struct AgentChatView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(NativeProTheme.panel.opacity(0.78), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(NativeProTheme.panel.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(NativeProTheme.separator)
         }
     }
@@ -161,11 +165,7 @@ struct AgentChatView: View {
             }
         }
         .padding(14)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(height: 1)
-        }
+        .background(NativeProTheme.inspector)
     }
 
     private var composerInput: some View {
@@ -177,9 +177,9 @@ struct AgentChatView: View {
             .padding(.vertical, 11)
             .frame(minHeight: 48, alignment: .topLeading)
             .frame(maxWidth: .infinity)
-            .background(NativeProTheme.panel.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(NativeProTheme.panel.opacity(0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(NativeProTheme.separator, lineWidth: 1)
             }
     }
@@ -195,7 +195,7 @@ struct AgentChatView: View {
             Image(systemName: isStreaming ? "stop.fill" : "arrow.up")
                 .font(.system(size: 14, weight: .bold))
                 .frame(width: 42, height: 42)
-                .background(sendButtonBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(sendButtonBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .foregroundStyle(sendButtonForeground)
         }
         .buttonStyle(.plain)
@@ -346,7 +346,17 @@ struct AgentChatView: View {
 
     private func appendStreamChunk(_ chunk: String, to id: UUID) {
         guard let index = model.chatMessages.firstIndex(where: { $0.id == id }) else { return }
-        model.chatMessages[index].text += chunk
+        let currentText = model.chatMessages[index].text
+        guard currentText.count < streamedMessageCharacterLimit else { return }
+
+        let remaining = streamedMessageCharacterLimit - currentText.count
+        if chunk.count <= remaining {
+            model.chatMessages[index].text += chunk
+        } else {
+            let end = chunk.index(chunk.startIndex, offsetBy: remaining)
+            model.chatMessages[index].text += String(chunk[..<end])
+            model.chatMessages[index].text += "\n\n\(language.text("chat.outputTruncated"))"
+        }
     }
 
     private func finishStreaming(_ id: UUID) {
@@ -460,7 +470,11 @@ private struct MessageBubble: View {
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 9)
-            .background(bubbleBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(bubbleBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(message.role == .assistant ? NativeProTheme.separator : .clear, lineWidth: 1)
+            }
 
             if message.role == .assistant {
                 Spacer(minLength: 34)
@@ -591,7 +605,7 @@ private struct ChatAvatar: View {
         Image(systemName: role == .user ? "person.crop.circle.fill" : "cpu.fill")
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(role == .user ? NativeProTheme.accent : NativeProTheme.success)
-            .frame(width: 26, height: 26)
+            .frame(width: 30, height: 30)
             .background(NativeProTheme.panel.opacity(0.82), in: Circle())
             .overlay {
                 Circle()

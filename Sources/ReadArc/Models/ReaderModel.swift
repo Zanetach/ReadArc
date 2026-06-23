@@ -29,8 +29,8 @@ final class ReaderModel: NSObject, ObservableObject {
     @Published var errorMessage: String?
     @Published var isLibraryOverlayVisible = false
     @Published var isSidebarVisible = true
-    @Published var isInspectorVisible = true
-    @Published var rightPanelMode: RightPanelMode = .inspector
+    @Published var isInspectorVisible = false
+    @Published var rightPanelMode: RightPanelMode = .research
     @Published var inspectorTab: InspectorTab = .search
     @Published var readerMode: ReaderMode = .nativePro
     @Published var selectedChatAgent: ChatAgentProvider = .codexCLI
@@ -157,6 +157,8 @@ final class ReaderModel: NSObject, ObservableObject {
         isLoadingDocument = true
         isSearching = false
         isSearchTruncated = false
+        isLibraryOverlayVisible = false
+        isSidebarVisible = true
         document = nil
         documentURL = url
         pageIndex = 0
@@ -192,6 +194,8 @@ final class ReaderModel: NSObject, ObservableObject {
                 self.scaleFactor = 1
                 self.outlineItems = payload.outlineItems
                 self.cachedPageTexts = payload.pageTexts
+                self.isLibraryOverlayVisible = false
+                self.isSidebarVisible = true
                 self.isLoadingDocument = false
                 self.recents.add(url: url)
                 self.schedulePageTextCache(around: 0)
@@ -241,7 +245,13 @@ final class ReaderModel: NSObject, ObservableObject {
 
     func showLibrary() {
         isLibraryOverlayVisible.toggle()
-        isInspectorVisible = false
+        isSidebarVisible = true
+        readerMode = .nativePro
+    }
+
+    func showThumbnails() {
+        isLibraryOverlayVisible = false
+        isSidebarVisible = true
         readerMode = .nativePro
     }
 
@@ -258,11 +268,41 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func showInspector(tab: InspectorTab? = nil) {
+        if tab == .notes {
+            showFocus()
+        } else {
+            showResearch(tab: tab)
+        }
+    }
+
+    func showRightPanel(_ mode: RightPanelMode) {
+        switch mode {
+        case .chat:
+            showChat()
+        case .focus:
+            showFocus()
+        case .research:
+            showResearch()
+        }
+    }
+
+    func showFocus() {
+        isLibraryOverlayVisible = false
+        inspectorTab = .notes
+        readerMode = .focus
+        rightPanelMode = .focus
+        isInspectorVisible = true
+    }
+
+    func showResearch(tab: InspectorTab? = nil) {
         isLibraryOverlayVisible = false
         if let tab {
             inspectorTab = tab
+        } else if inspectorTab == .notes {
+            inspectorTab = .search
         }
-        rightPanelMode = .inspector
+        readerMode = .research
+        rightPanelMode = .research
         isInspectorVisible = true
     }
 
@@ -325,10 +365,10 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func toggleInspectorPanel() {
-        if isInspectorVisible && rightPanelMode == .inspector {
+        if isInspectorVisible {
             isInspectorVisible = false
         } else {
-            showInspector()
+            showRightPanel(rightPanelMode)
         }
     }
 

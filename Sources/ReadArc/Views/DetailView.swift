@@ -2,26 +2,18 @@ import SwiftUI
 
 struct DetailView: View {
     @ObservedObject var model: ReaderModel
-    @SceneStorage("readArcToolbarCollapsed") private var isToolbarCollapsed = false
 
     var body: some View {
         VStack(spacing: 0) {
-            ReaderToolbar(
-                model: model,
-                isCollapsed: model.hasDocument && isToolbarCollapsed,
-                toggleCollapsed: {
-                    isToolbarCollapsed.toggle()
-                }
-            )
-                .opacity(model.readerMode == .focus ? 0.24 : 1)
-
             if model.isLoadingDocument {
                 LoadingDocumentView(title: model.documentTitle)
             } else if model.document == nil {
                 EmptyDocumentView(openDocument: model.openDocument)
             } else {
                 PDFKitRepresentedView(model: model)
-                    .ignoresSafeArea(.container, edges: .bottom)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
             }
         }
         .background(model.readerMode == .focus ? NativeProTheme.readerCanvas.opacity(0.82) : NativeProTheme.readerCanvas)

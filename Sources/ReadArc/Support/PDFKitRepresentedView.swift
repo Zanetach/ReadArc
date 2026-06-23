@@ -9,7 +9,7 @@ struct PDFKitRepresentedView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> PDFView {
-        let pdfView = PDFView()
+        let pdfView = DoubleClickPDFView()
         pdfView.displayMode = .singlePageContinuous
         pdfView.displayDirection = .vertical
         pdfView.displaysPageBreaks = true
@@ -18,6 +18,9 @@ struct PDFKitRepresentedView: NSViewRepresentable {
         pdfView.maxScaleFactor = 6.0
         pdfView.backgroundColor = NativeProTheme.readerCanvasNSColor
         context.coordinator.attach(to: pdfView)
+        pdfView.doubleClickHandler = { [weak coordinator = context.coordinator] pdfView, event in
+            coordinator?.toggleZoom(onDoubleClick: event, in: pdfView)
+        }
         return pdfView
     }
 
@@ -129,6 +132,26 @@ struct PDFKitRepresentedView: NSViewRepresentable {
             pdfView.clearSelection()
         }
 
+        func toggleZoom(onDoubleClick event: NSEvent, in pdfView: PDFView) {
+            let viewPoint = pdfView.convert(event.locationInWindow, from: nil)
+            let page = pdfView.page(for: viewPoint, nearest: true)
+            let pagePoint = page.map { pdfView.convert(viewPoint, to: $0) }
+            let fittedScale = max(pdfView.scaleFactorForSizeToFit, pdfView.minScaleFactor)
+            let isFitted = pdfView.autoScales || abs(pdfView.scaleFactor - fittedScale) < 0.04
+
+            if isFitted {
+                pdfView.autoScales = false
+                pdfView.scaleFactor = min(max(fittedScale * 2.0, 1.5), pdfView.maxScaleFactor)
+            } else {
+                pdfView.autoScales = true
+            }
+
+            if let page, let pagePoint {
+                pdfView.go(to: PDFDestination(page: page, at: pagePoint))
+            }
+            sync(from: pdfView)
+        }
+
         func sync(from pdfView: PDFView) {
             let pageCount = pdfView.document?.pageCount ?? 0
             let currentPageIndex: Int
@@ -150,5 +173,17 @@ struct PDFKitRepresentedView: NSViewRepresentable {
             guard let pdfView = notification.object as? PDFView else { return }
             sync(from: pdfView)
         }
+    }
+}
+
+private final class DoubleClickPDFView: PDFView {
+    var doubleClickHandler: ((DoubleClickPDFView, NSEvent) -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            doubleClickHandler?(self, event)
+            return
+        }
+        super.mouseDown(with: event)
     }
 }

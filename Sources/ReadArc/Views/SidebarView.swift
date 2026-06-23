@@ -22,7 +22,7 @@ struct SidebarView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if let selectedDocument {
-                        SectionLabel("Pinned")
+                        SectionLabel(language.text("library.pinned"))
                         RecentDocumentRow(
                             document: selectedDocument,
                             isSelected: true,
@@ -31,7 +31,7 @@ struct SidebarView: View {
                         )
                     }
 
-                    SectionLabel("Recent")
+                    SectionLabel(language.text("library.recent"))
 
                     if filteredDocuments.isEmpty {
                         emptyRecentState
@@ -173,6 +173,7 @@ private struct RecentDocumentRow: View {
     let isSelected: Bool
     let openRecent: (RecentDocument) -> Void
     let removeRecent: (RecentDocument) -> Void
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         Button {
@@ -190,7 +191,7 @@ private struct RecentDocumentRow: View {
                         .foregroundStyle(isSelected ? NativeProTheme.accent : NativeProTheme.ink)
 
                     HStack(spacing: 7) {
-                        Text(document.url.deletingLastPathComponent().lastPathComponent.isEmpty ? "Local" : document.url.deletingLastPathComponent().lastPathComponent)
+                        Text(document.url.deletingLastPathComponent().lastPathComponent.isEmpty ? language.text("library.local") : document.url.deletingLastPathComponent().lastPathComponent)
                         Text("PDF")
                     }
                     .font(.system(size: 11))
@@ -212,7 +213,7 @@ private struct RecentDocumentRow: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Remove from Recent") {
+            Button(language.text("library.removeRecent")) {
                 removeRecent(document)
             }
         }

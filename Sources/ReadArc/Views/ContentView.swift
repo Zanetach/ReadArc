@@ -16,48 +16,47 @@ struct ContentView: View {
                 libraryOverlayVisible: model.isLibraryOverlayVisible
             )
 
-            HStack(spacing: 0) {
-                CommandRailView(model: model, usesSidebarCollapse: layout.showsSidebar)
-                    .frame(width: layout.railWidth)
+            VStack(spacing: 0) {
+                ReaderToolbar(model: model)
 
-                if (layout.showsSidebar && model.isSidebarVisible) || model.isLibraryOverlayVisible {
-                    SidebarView(
-                        recents: model.recents,
-                        selectedURL: model.documentURL,
-                        readerMode: model.readerMode,
-                        openDocument: model.openDocument,
-                        openRecent: model.openRecent,
-                        removeRecent: model.removeRecent,
-                        clearRecents: model.clearRecents
-                    )
-                    .frame(width: layout.sidebarWidth)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                }
+                HStack(spacing: 0) {
+                    CommandRailView(model: model, usesSidebarCollapse: layout.showsSidebar)
+                        .frame(width: layout.railWidth)
 
-                DetailView(model: model)
-                    .frame(minWidth: 0, maxWidth: .infinity)
+                    if (layout.showsSidebar && model.isSidebarVisible) || model.isLibraryOverlayVisible {
+                        leftSidebar
+                        .frame(width: layout.sidebarWidth)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
 
-                if model.isInspectorVisible {
-                    RightPanelResizeHandle(
-                        isActive: rightPanelDragStartWidth != nil,
-                        onChanged: { translation in
-                            resizeRightPanel(
-                                translation: translation,
-                                currentWidth: rightPanelWidth,
-                                layout: layout
-                            )
-                        },
-                        onEnded: {
-                            rightPanelDragStartWidth = nil
-                        }
-                    )
+                    DetailView(model: model)
+                        .frame(minWidth: 0, maxWidth: .infinity)
 
-                    rightPanel
-                        .frame(width: rightPanelWidth)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    if model.isInspectorVisible {
+                        RightPanelResizeHandle(
+                            isActive: rightPanelDragStartWidth != nil,
+                            onChanged: { translation in
+                                resizeRightPanel(
+                                    translation: translation,
+                                    currentWidth: rightPanelWidth,
+                                    layout: layout
+                                )
+                            },
+                            onEnded: {
+                                rightPanelDragStartWidth = nil
+                            }
+                        )
+
+                        rightPanel
+                            .frame(width: rightPanelWidth)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(NativeProTheme.window)
         }
+        .ignoresSafeArea(.container, edges: .top)
         .animation(.easeInOut(duration: 0.16), value: model.isInspectorVisible)
         .animation(.easeInOut(duration: 0.16), value: model.isSidebarVisible)
         .animation(.easeInOut(duration: 0.16), value: model.isLibraryOverlayVisible)
@@ -84,12 +83,46 @@ struct ContentView: View {
     }
 
     @ViewBuilder
+    private var leftSidebar: some View {
+        if model.hasDocument && !model.isLibraryOverlayVisible {
+            PDFPageThumbnailPanel(model: model)
+        } else {
+            SidebarView(
+                recents: model.recents,
+                selectedURL: model.documentURL,
+                readerMode: model.readerMode,
+                openDocument: model.openDocument,
+                openRecent: model.openRecent,
+                removeRecent: model.removeRecent,
+                clearRecents: model.clearRecents
+            )
+        }
+    }
+
+    @ViewBuilder
     private var rightPanel: some View {
-        switch model.rightPanelMode {
-        case .inspector:
-            DocumentInspectorView(model: model)
-        case .chat:
-            AgentChatView(model: model)
+        VStack(spacing: 0) {
+            Group {
+                switch model.rightPanelMode {
+                case .chat:
+                    AgentChatView(
+                        model: model,
+                        modeSwitcher: AnyView(RightPanelModeSwitcher(model: model))
+                    )
+                case .focus, .research:
+                    DocumentInspectorView(
+                        model: model,
+                        modeSwitcher: AnyView(RightPanelModeSwitcher(model: model))
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(NativeProTheme.inspector.opacity(0.98))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(NativeProTheme.separator)
+                .frame(width: 1)
         }
     }
 
@@ -138,7 +171,7 @@ private struct ResponsiveReaderLayout {
     let width: CGFloat
 
     var railWidth: CGFloat {
-        width < 980 ? 56 : 64
+        width < 980 ? 58 : 82
     }
 
     var showsSidebar: Bool {
@@ -146,7 +179,7 @@ private struct ResponsiveReaderLayout {
     }
 
     var sidebarWidth: CGFloat {
-        width < 980 ? 252 : (width < 1160 ? 224 : 252)
+        width < 980 ? 168 : (width < 1160 ? 176 : 202)
     }
 
     var defaultRightPanelWidth: CGFloat {
@@ -154,13 +187,13 @@ private struct ResponsiveReaderLayout {
             return 280
         }
         if width < 1400 {
-            return 318
+            return 380
         }
-        return 344
+        return 460
     }
 
     var minRightPanelWidth: CGFloat {
-        width < 980 ? 260 : 300
+        width < 980 ? 260 : 340
     }
 
     func rightPanelWidth(
@@ -187,9 +220,9 @@ private struct ResponsiveReaderLayout {
     private func maxRightPanelWidth(sidebarVisible: Bool, libraryOverlayVisible: Bool) -> CGFloat {
         let sidebarIsShown = (showsSidebar && sidebarVisible) || libraryOverlayVisible
         let occupiedWidth = railWidth + (sidebarIsShown ? sidebarWidth : 0)
-        let minReaderWidth: CGFloat = width < 980 ? 360 : 460
+        let minReaderWidth: CGFloat = width < 980 ? 300 : 380
         let available = width - occupiedWidth - minReaderWidth
-        return max(minRightPanelWidth, min(640, available))
+        return max(minRightPanelWidth, min(840, available))
     }
 }
 
@@ -202,11 +235,11 @@ private struct RightPanelResizeHandle: View {
     var body: some View {
         Rectangle()
             .fill(Color.clear)
-            .frame(width: 8)
+            .frame(width: 16)
             .overlay {
                 Capsule()
-                    .fill((isHovering || isActive) ? NativeProTheme.accent.opacity(0.65) : NativeProTheme.separator)
-                    .frame(width: (isHovering || isActive) ? 3 : 1)
+                    .fill((isHovering || isActive) ? NativeProTheme.accent.opacity(0.78) : NativeProTheme.separator.opacity(0.9))
+                    .frame(width: (isHovering || isActive) ? 4 : 2)
             }
             .contentShape(Rectangle())
             .gesture(
@@ -257,62 +290,56 @@ private struct DropTargetOverlay: View {
 private struct CommandRailView: View {
     @ObservedObject var model: ReaderModel
     let usesSidebarCollapse: Bool
+    @AppStorage("appearanceMode") private var appearanceModeRaw = AppAppearanceMode.system.rawValue
+    @AppStorage("appLanguage") private var languageRaw = AppLanguage.system.rawValue
     @Environment(\.appLanguage) private var language
 
     var body: some View {
         VStack(spacing: 0) {
-            AppLogoView(size: 42)
-                .frame(width: 48, height: 48)
-                .padding(.top, 15)
-
             VStack(spacing: 10) {
-                RailButton(
-                    title: usesSidebarCollapse && model.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar",
-                    systemImage: "sidebar.leading",
-                    isActive: usesSidebarCollapse && model.isSidebarVisible
-                ) {
-                    if usesSidebarCollapse {
-                        model.toggleSidebar()
-                    } else {
-                        model.showLibrary()
-                    }
+                RailButton(title: model.rightPanelMode == .chat && model.isInspectorVisible ? "Hide Chat" : "Chat", systemImage: "bubble.left.and.bubble.right", isActive: model.rightPanelMode == .chat && model.isInspectorVisible) {
+                    model.toggleChat()
                 }
 
-                RailButton(title: "Library", systemImage: "book.pages", isActive: model.isLibraryOverlayVisible) {
-                    if usesSidebarCollapse {
-                        model.showSidebar()
+                RailButton(
+                    title: language.text("library.title"),
+                    systemImage: "folder",
+                    isActive: model.isLibraryOverlayVisible
+                ) {
+                    model.showLibrary()
+                }
+
+                RailButton(
+                    title: language.text("thumbnails.title"),
+                    systemImage: "sidebar.leading",
+                    isActive: model.hasDocument && model.isSidebarVisible && !model.isLibraryOverlayVisible
+                ) {
+                    if model.hasDocument {
+                        model.showThumbnails()
                     } else {
                         model.showLibrary()
                     }
                 }
-                RailButton(title: "Search", systemImage: "magnifyingglass", isActive: model.rightPanelMode == .inspector && model.inspectorTab == .search && model.readerMode == .research && model.isInspectorVisible) {
-                    model.readerMode = .research
-                    model.showInspector(tab: .search)
+                RailButton(title: "Search", systemImage: "magnifyingglass", isActive: model.rightPanelMode == .research && model.inspectorTab == .search && model.isInspectorVisible) {
+                    model.showResearch(tab: .search)
                 }
-                RailButton(title: "Notes", systemImage: "note.text", isActive: model.rightPanelMode == .inspector && model.inspectorTab == .notes && model.isInspectorVisible) {
-                    model.showInspector(tab: .notes)
+                RailButton(title: "Notes", systemImage: "note.text", isActive: model.rightPanelMode == .focus && model.isInspectorVisible) {
+                    model.showFocus()
                 }
-                RailButton(title: "Outline", systemImage: "list.bullet.rectangle", isActive: model.rightPanelMode == .inspector && model.inspectorTab == .outline && model.isInspectorVisible) {
-                    model.showInspector(tab: .outline)
+                RailButton(title: "Outline", systemImage: "list.bullet.rectangle", isActive: model.rightPanelMode == .research && model.inspectorTab == .outline && model.isInspectorVisible) {
+                    model.showResearch(tab: .outline)
                 }
             }
-            .padding(.top, 26)
+            .padding(.top, 28)
             .frame(maxWidth: .infinity, alignment: .center)
 
             Spacer(minLength: 0)
 
-            RailButton(title: model.rightPanelMode == .chat && model.isInspectorVisible ? "Hide Chat" : "Chat", systemImage: "bubble.left.and.bubble.right", isActive: model.rightPanelMode == .chat && model.isInspectorVisible) {
-                model.toggleChat()
-            }
-            .padding(.bottom, 12)
-
-            Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(NativeProTheme.success)
-                .frame(width: 30, height: 30)
-                .background(NativeProTheme.successSoft, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .padding(.bottom, 16)
-                .help("Indexed")
+            RailSettingsMenu(
+                appearanceMode: appearanceMode,
+                appLanguage: appLanguage
+            )
+            .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .background(NativeProTheme.commandRail)
@@ -321,6 +348,130 @@ private struct CommandRailView: View {
                 .fill(NativeProTheme.separator)
                 .frame(width: 1)
         }
+    }
+
+    private var appearanceMode: Binding<AppAppearanceMode> {
+        Binding(
+            get: { AppAppearanceMode(rawValue: appearanceModeRaw) ?? .system },
+            set: { mode in
+                appearanceModeRaw = mode.rawValue
+                AppAppearanceController.apply(mode)
+                if mode == .system {
+                    AppAppearanceController.requestSystemAppearanceRefresh()
+                }
+            }
+        )
+    }
+
+    private var appLanguage: Binding<AppLanguage> {
+        Binding(
+            get: { AppLanguage(rawValue: languageRaw) ?? .system },
+            set: { languageRaw = $0.rawValue }
+        )
+    }
+}
+
+private struct RailSettingsMenu: View {
+    @Binding var appearanceMode: AppAppearanceMode
+    @Binding var appLanguage: AppLanguage
+    @Environment(\.appLanguage) private var language
+
+    var body: some View {
+        Menu {
+            Section(language.text("appearance")) {
+                settingButton(
+                    title: language.text("appearance.system"),
+                    systemImage: "circle.lefthalf.filled",
+                    isSelected: appearanceMode == .system
+                ) {
+                    appearanceMode = .system
+                }
+                settingButton(
+                    title: language.text("appearance.light"),
+                    systemImage: "sun.max",
+                    isSelected: appearanceMode == .light
+                ) {
+                    appearanceMode = .light
+                }
+                settingButton(
+                    title: language.text("appearance.dark"),
+                    systemImage: "moon",
+                    isSelected: appearanceMode == .dark
+                ) {
+                    appearanceMode = .dark
+                }
+            }
+
+            Section(language.text("language")) {
+                settingButton(
+                    title: language.text("language.system"),
+                    systemImage: "globe",
+                    isSelected: appLanguage == .system
+                ) {
+                    appLanguage = .system
+                }
+                settingButton(
+                    title: language.text("language.chinese"),
+                    systemImage: "character.bubble",
+                    isSelected: appLanguage == .simplifiedChinese
+                ) {
+                    appLanguage = .simplifiedChinese
+                }
+                settingButton(
+                    title: language.text("language.english"),
+                    systemImage: "textformat",
+                    isSelected: appLanguage == .english
+                ) {
+                    appLanguage = .english
+                }
+            }
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 18, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 44, height: 44)
+                .background(Color.clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .foregroundStyle(NativeProTheme.muted)
+        }
+        .menuStyle(.borderlessButton)
+        .frame(width: 54, height: 50)
+        .help(language.text("settings.title"))
+        .accessibilityLabel(language.text("settings.title"))
+    }
+
+    private func settingButton(
+        title: String,
+        systemImage: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: isSelected ? "checkmark" : systemImage)
+        }
+    }
+}
+
+private struct RightPanelModeSwitcher: View {
+    @ObservedObject var model: ReaderModel
+    @Environment(\.appLanguage) private var language
+
+    var body: some View {
+        Picker("Right Panel", selection: panelMode) {
+            ForEach(RightPanelMode.allCases) { mode in
+                Label(mode.title(language: language), systemImage: mode.systemImage)
+                    .tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .controlSize(.small)
+    }
+
+    private var panelMode: Binding<RightPanelMode> {
+        Binding(
+            get: { model.rightPanelMode },
+            set: { model.showRightPanel($0) }
+        )
     }
 }
 
@@ -333,13 +484,17 @@ private struct RailButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 17, weight: .medium))
+                .font(.system(size: 18, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: 40, height: 40)
-                .background(isActive ? NativeProTheme.selection : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .frame(width: 44, height: 44)
+                .background(isActive ? NativeProTheme.selection : Color.clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(isActive ? NativeProTheme.accent.opacity(0.40) : .clear, lineWidth: 1)
+                }
                 .foregroundStyle(isActive ? NativeProTheme.accent : NativeProTheme.muted)
         }
-        .frame(width: 48, height: 44)
+        .frame(width: 54, height: 50)
         .buttonStyle(.plain)
         .help(title)
         .accessibilityLabel(title)
