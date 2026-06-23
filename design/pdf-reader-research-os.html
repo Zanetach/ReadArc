@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReadArc · Research OS</title>
+  <!--
+    Huashu Redesign Pass
+    Assumptions:
+    - Direction B is selected: Research OS.
+    - The app should stop looking like Preview with a sidebar.
+    - The visual center is still the PDF page, but the product identity comes from research surfaces:
+      semantic search, outline, excerpts, and notes.
+    - This is a high-fidelity design target first. SwiftUI implementation should follow after approval.
+
+    Design decisions:
+    - Charcoal command rail + paper reader + pale research inspector.
+    - Higher information density on purpose: this product should feel smarter than a plain viewer.
+    - Avoid marketing layout, decorative cards, fake stats, emoji, purple gradients, and generic AI chrome.
+  -->
+  <style>
+    :root {
+      --ink: #1D1D1F;
+      --ink-2: #303236;
+      --muted: #6E6E73;
+      --faint: #A1A1A6;
+      --paper: #FFFFFF;
+      --paper-edge: #E6E6EA;
+      --canvas: #E9E9ED;
+      --rail: #F5F5F7;
+      --rail-2: #EAEAEE;
+      --library: #F2F2F6;
+      --chrome: #F8F8FA;
+      --panel: #FAFAFC;
+      --panel-2: #F0F0F4;
+      --blue: #007AFF;
+      --blue-soft: #E8F1FF;
+      --amber: #B57A00;
+      --amber-soft: #FFF6D8;
+      --green: #248A5C;
+      --green-soft: #E9F6EF;
+      --red: #B84A3F;
+      --line: rgba(29, 29, 31, 0.11);
+      --shadow: 0 28px 64px rgba(29, 29, 31, 0.18), 0 0 0 1px rgba(29, 29, 31, 0.10);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      --serif: Georgia, "Times New Roman", serif;
+      --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(0, 122, 255, 0.08), transparent 28%),
+        radial-gradient(circle at 86% 16%, rgba(120, 120, 128, 0.10), transparent 26%),
+        linear-gradient(135deg, #F1F1F4, #DEDEE4 58%, #D4D4DA);
+      letter-spacing: 0;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .stage {
+      min-height: 100vh;
+      padding: 26px;
+      display: grid;
+      place-items: center;
+    }
+
+    .window {
+      width: min(1510px, calc(100vw - 52px));
+      height: min(900px, calc(100vh - 52px));
+      min-height: 760px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      background: var(--chrome);
+      display: grid;
+      grid-template-rows: 38px 1fr;
+    }
+
+    .titlebar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      background: #FAFAFC;
+      border-bottom: 1px solid var(--line);
+      user-select: none;
+    }
+
+    .lights {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .light {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 0.5px solid rgba(0, 0, 0, 0.17);
+    }
+
+    .close { background: #FF5F57; }
+    .min { background: #FEBC2E; }
+    .max { background: #28C840; }
+
+    .title {
+      position: absolute;
+      inset-inline: 190px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #4B4B50;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 64px 252px minmax(560px, 1fr) 344px;
+    }
+
+    .command-rail {
+      background: var(--rail);
+      color: var(--ink);
+      border-right: 1px solid var(--line);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      align-items: start;
+      justify-items: center;
+      padding: 14px 10px;
+      gap: 18px;
+    }
+
+    .app-mark {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+    }
+
+    .app-mark img {
+      width: 36px;
+      height: 36px;
+      display: block;
+    }
+
+    .rail-actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .rail-button {
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+    }
+
+    .rail-button svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2.1;
+    }
+
+    .rail-button.active,
+    .rail-button:hover {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .sync-dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .library {
+      min-width: 0;
+      background: var(--library);
+      border-right: 1px solid rgba(26, 29, 32, 0.15);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      overflow: hidden;
+    }
+
+    .library-header {
+      padding: 18px 16px 14px;
+      border-bottom: 1px solid rgba(26, 29, 32, 0.10);
+    }
+
+    .library-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .library-search {
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid rgba(26, 29, 32, 0.10);
+      background: rgba(255, 255, 255, 0.56);
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      align-items: center;
+      padding: 0 9px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .library-search input {
+      border: 0;
+      outline: 0;
+      background: transparent;
+      min-width: 0;
+      color: var(--ink);
+    }
+
+    .collection-strip {
+      display: flex;
+      gap: 7px;
+      padding: 12px 14px;
+      overflow: hidden;
+    }
+
+    .collection-chip {
+      border: 1px solid rgba(26, 29, 32, 0.11);
+      background: rgba(255, 255, 255, 0.45);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .collection-chip.active {
+      background: var(--blue-soft);
+      color: var(--blue);
+      border-color: rgba(0, 122, 255, 0.22);
+    }
+
+    .doc-list {
+      overflow: auto;
+      padding: 4px 10px 12px;
+    }
+
+    .section-label {
+      margin: 12px 7px 7px;
+      font-size: 10px;
+      color: #868075;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .doc-row {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 8px;
+      padding: 9px 8px;
+      border-radius: 9px;
+      min-width: 0;
+      border: 1px solid transparent;
+    }
+
+    .doc-row.active {
+      background: var(--blue-soft);
+      border-color: rgba(27, 102, 210, 0.18);
+    }
+
+    .doc-row:hover {
+      background: rgba(255, 255, 255, 0.46);
+    }
+
+    .doc-icon {
+      width: 22px;
+      height: 28px;
+      border-radius: 4px;
+      background: #F9F7F0;
+      border: 1px solid rgba(26, 29, 32, 0.18);
+      color: var(--blue);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+
+    .doc-title {
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .doc-row.active .doc-title {
+      color: var(--blue);
+    }
+
+    .doc-meta {
+      margin-top: 3px;
+      display: flex;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      min-width: 0;
+    }
+
+    .doc-meta span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .library-footer {
+      padding: 12px;
+      border-top: 1px solid rgba(26, 29, 32, 0.10);
+    }
+
+    .open-button {
+      width: 100%;
+      height: 34px;
+      border: 0;
+      border-radius: 9px;
+      background: var(--blue);
+      color: white;
+      font-weight: 650;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 13px;
+    }
+
+    .open-button svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .reader {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 54px 1fr;
+      background: var(--canvas);
+      overflow: hidden;
+    }
+
+    .reader-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto minmax(292px, 1fr);
+      align-items: center;
+      gap: 14px;
+      padding: 9px 14px;
+      background: rgba(248, 248, 250, 0.92);
+      border-bottom: 1px solid rgba(26, 29, 32, 0.10);
+      backdrop-filter: blur(18px);
+    }
+
+    .reader-toolbar .left,
+    .reader-toolbar .center,
+    .reader-toolbar .right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .reader-toolbar .center { justify-content: center; }
+    .reader-toolbar .right { justify-content: flex-end; }
+
+    .tool {
+      height: 30px;
+      min-width: 30px;
+      border: 1px solid rgba(26, 29, 32, 0.14);
+      background: rgba(255, 255, 255, 0.74);
+      border-radius: 7px;
+      color: var(--ink-2);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 8px;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .tool.icon-only {
+      width: 30px;
+      padding: 0;
+    }
+
+    .tool svg {
+      width: 14px;
+      height: 14px;
+      stroke-width: 2.15;
+    }
+
+    .tool.primary {
+      background: var(--blue);
+      color: white;
+      border-color: var(--blue);
+    }
+
+    .tool.ghost {
+      background: transparent;
+    }
+
+    .mono-pill {
+      height: 30px;
+      min-width: 74px;
+      border-radius: 8px;
+      background: rgba(26, 29, 32, 0.08);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 9px;
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .reader-search {
+      height: 30px;
+      width: 142px;
+      flex: 0 0 142px;
+      border-radius: 8px;
+      border: 1px solid rgba(26, 29, 32, 0.14);
+      background: rgba(255, 255, 255, 0.74);
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      align-items: center;
+      padding: 0 10px;
+      color: var(--muted);
+    }
+
+    .reader-search input {
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      min-width: 0;
+    }
+
+    .page-area {
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: minmax(32px, 1fr) minmax(620px, 810px) minmax(32px, 1fr);
+      padding: 34px 0 78px;
+      position: relative;
+    }
+
+    .page-meta-rail {
+      display: none;
+    }
+
+    .side-badge {
+      border-radius: 9px;
+      padding: 8px 9px;
+      background: rgba(255, 253, 248, 0.50);
+      border: 1px solid rgba(26, 29, 32, 0.11);
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .side-badge strong {
+      display: block;
+      color: var(--ink);
+      font-family: var(--mono);
+      margin-bottom: 2px;
+    }
+
+    .pdf-page {
+      grid-column: 2;
+      min-height: 1020px;
+      background: var(--paper);
+      border: 1px solid var(--paper-edge);
+      box-shadow: 0 18px 44px rgba(32, 26, 18, 0.24);
+      padding: 62px 76px 54px;
+      position: relative;
+    }
+
+    .paper-label {
+      color: var(--blue);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    .paper-title {
+      margin: 0 0 18px;
+      font-family: var(--serif);
+      font-size: clamp(36px, 4.2vw, 50px);
+      line-height: 1.04;
+      letter-spacing: 0;
+      text-wrap: pretty;
+    }
+
+    .paper-abstract {
+      max-width: 630px;
+      margin: 0 0 32px;
+      color: #59544B;
+      font-size: 15px;
+      line-height: 1.68;
+    }
+
+    .paper-grid {
+      display: grid;
+      grid-template-columns: 1fr 188px;
+      gap: 40px;
+    }
+
+    .paper-copy p {
+      margin: 0 0 16px;
+      color: #34312D;
+      font-size: 14px;
+      line-height: 1.86;
+      text-wrap: pretty;
+    }
+
+    mark {
+      background: var(--amber-soft);
+      color: #6E4209;
+      border-radius: 4px;
+      padding: 1px 4px;
+      box-shadow: inset 0 -1px 0 rgba(181, 106, 22, 0.20);
+    }
+
+    .quote-pull {
+      margin: 28px 0;
+      padding: 14px 16px;
+      border-left: 3px solid var(--green);
+      background: var(--green-soft);
+      color: #254637;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .figure {
+      border: 1px solid rgba(26, 29, 32, 0.15);
+      background: #FBF8F1;
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    .matrix {
+      height: 152px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(5, 1fr);
+      gap: 5px;
+    }
+
+    .cell {
+      border-radius: 4px;
+      background: #D7D0C2;
+    }
+
+    .cell.hot { background: var(--blue); }
+    .cell.warm { background: #D79A42; }
+    .cell.cool { background: #5B846E; }
+
+    .figure-caption {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .annotation-anchor {
+      position: absolute;
+      right: -16px;
+      top: 410px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-family: var(--mono);
+      font-size: 12px;
+      box-shadow: 0 8px 20px rgba(27, 102, 210, 0.34);
+    }
+
+    .page-footer {
+      margin-top: 44px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(26, 29, 32, 0.15);
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .inspector {
+      min-width: 0;
+      min-height: 0;
+      background: var(--panel);
+      border-left: 1px solid rgba(26, 29, 32, 0.15);
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      overflow: hidden;
+    }
+
+    .inspector-header {
+      padding: 18px 18px 12px;
+      border-bottom: 1px solid rgba(26, 29, 32, 0.10);
+    }
+
+    .inspector-title {
+      font-size: 16px;
+      font-weight: 750;
+      margin-bottom: 4px;
+    }
+
+    .inspector-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      padding: 10px;
+      gap: 6px;
+      border-bottom: 1px solid rgba(26, 29, 32, 0.10);
+    }
+
+    .tab {
+      height: 30px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 650;
+      font-size: 12px;
+    }
+
+    .tab.active {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .inspector-body {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .pane {
+      display: none;
+    }
+
+    .pane.active {
+      display: grid;
+      gap: 12px;
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .metric {
+      padding: 10px;
+      border-radius: 9px;
+      background: var(--panel-2);
+      border: 1px solid rgba(26, 29, 32, 0.08);
+    }
+
+    .metric strong {
+      display: block;
+      font-family: var(--mono);
+      font-size: 15px;
+      margin-bottom: 3px;
+    }
+
+    .metric span {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .result-card,
+    .note-card,
+    .outline-card,
+    .synthesis-card {
+      border-radius: 10px;
+      border: 1px solid rgba(26, 29, 32, 0.10);
+      background: rgba(255, 253, 248, 0.72);
+      padding: 12px;
+    }
+
+    .result-card.active {
+      background: var(--amber-soft);
+      border-color: rgba(181, 106, 22, 0.24);
+    }
+
+    .card-kicker {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: var(--mono);
+      margin-bottom: 6px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 750;
+      margin-bottom: 5px;
+    }
+
+    .card-copy {
+      color: #4B4841;
+      font-size: 12px;
+      line-height: 1.48;
+    }
+
+    .outline-card {
+      display: grid;
+      gap: 7px;
+    }
+
+    .outline-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(26, 29, 32, 0.08);
+      font-size: 12px;
+      color: #47433C;
+    }
+
+    .outline-row:last-child {
+      border-bottom: 0;
+    }
+
+    .outline-row b {
+      color: var(--ink);
+      font-weight: 680;
+    }
+
+    .page-number {
+      font-family: var(--mono);
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      border-radius: 999px;
+      padding: 4px 7px;
+      font-size: 10px;
+      background: rgba(27, 102, 210, 0.10);
+      color: var(--blue);
+      font-weight: 650;
+    }
+
+    .tag.green {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .note-card {
+      display: grid;
+      gap: 8px;
+    }
+
+    .note-card textarea {
+      min-height: 86px;
+      resize: none;
+      border: 1px solid rgba(26, 29, 32, 0.12);
+      border-radius: 9px;
+      padding: 10px;
+      background: var(--paper);
+      color: var(--ink);
+      outline: 0;
+      font: inherit;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .small-action {
+      height: 30px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--rail);
+      color: white;
+      font-weight: 650;
+      font-size: 12px;
+    }
+
+    @media (max-width: 1180px) {
+      .workspace {
+        grid-template-columns: 56px 220px minmax(560px, 1fr);
+      }
+      .inspector {
+        display: none;
+      }
+      .reader-toolbar {
+        grid-template-columns: 1fr;
+      }
+      .reader-toolbar .center,
+      .reader-toolbar .right {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="window" aria-label="ReadArc Research OS Prototype">
+      <div class="titlebar">
+        <div class="lights" aria-hidden="true">
+          <span class="light close"></span>
+          <span class="light min"></span>
+          <span class="light max"></span>
+        </div>
+        <div class="title">ReadArc · Research OS</div>
+      </div>
+
+      <div class="workspace">
+        <nav class="command-rail" aria-label="Command rail">
+          <div class="app-mark"><img src="assets/pdf-reader-logo.svg" alt="ReadArc"></div>
+          <div class="rail-actions">
+            <button class="rail-button active" title="Library" aria-label="Library">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 4h10a4 4 0 0 1 4 4v12H8a3 3 0 0 0-3-3V4Z"/><path d="M5 17V4"/><path d="M8 17h11"/></svg>
+            </button>
+            <button class="rail-button" title="Search" aria-label="Search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+            </button>
+            <button class="rail-button" title="Notes" aria-label="Notes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 4h12v16H6z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
+            </button>
+            <button class="rail-button" title="References" aria-label="References">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 7h8"/><path d="M8 12h8"/><path d="M8 17h5"/><path d="M5 3h14v18H5z"/></svg>
+            </button>
+          </div>
+          <div class="sync-dot" title="Indexed">✓</div>
+        </nav>
+
+        <aside class="library">
+          <div class="library-header">
+            <div class="library-title">Research Library</div>
+            <label class="library-search">
+              <span>⌕</span>
+              <input value="local model" aria-label="Search library">
+            </label>
+          </div>
+
+          <div class="collection-strip">
+            <span class="collection-chip active">All</span>
+            <span class="collection-chip">Quotes</span>
+            <span class="collection-chip">Specs</span>
+          </div>
+
+          <div class="doc-list">
+            <div class="section-label">Pinned</div>
+            <article class="doc-row active">
+              <div class="doc-icon">PDF</div>
+              <div>
+                <div class="doc-title">BeeMax Resource Plan</div>
+                <div class="doc-meta"><span>96p</span><span>18 matches</span></div>
+              </div>
+            </article>
+            <article class="doc-row">
+              <div class="doc-icon">PDF</div>
+              <div>
+                <div class="doc-title">Quote Engine Rules</div>
+                <div class="doc-meta"><span>42p</span><span>6 notes</span></div>
+              </div>
+            </article>
+
+            <div class="section-label">Recent</div>
+            <article class="doc-row">
+              <div class="doc-icon">PDF</div>
+              <div>
+                <div class="doc-title">PCB Manufacturing Note</div>
+                <div class="doc-meta"><span>21p</span><span>outline</span></div>
+              </div>
+            </article>
+            <article class="doc-row">
+              <div class="doc-icon">PDF</div>
+              <div>
+                <div class="doc-title">TeamPulse Scope Brief</div>
+                <div class="doc-meta"><span>18p</span><span>3 refs</span></div>
+              </div>
+            </article>
+            <article class="doc-row">
+              <div class="doc-icon">PDF</div>
+              <div>
+                <div class="doc-title">Deployment Boundary</div>
+                <div class="doc-meta"><span>31p</span><span>reviewed</span></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="library-footer">
+            <button class="open-button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h7l2 2h9v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h4"/></svg>
+              <span>Open PDF</span>
+            </button>
+          </div>
+        </aside>
+
+        <section class="reader">
+          <div class="reader-toolbar">
+            <div class="left">
+              <button class="tool primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h7l2 2h9v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h4"/></svg>
+                <span>Open</span>
+              </button>
+              <button class="tool ghost icon-only" title="Previous page" aria-label="Previous page">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <button class="tool ghost icon-only" title="Next page" aria-label="Next page">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <span class="mono-pill">14 / 96</span>
+            </div>
+            <div class="center">
+              <button class="tool icon-only" title="Zoom out" aria-label="Zoom out">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="6"/><path d="M8 11h6"/><path d="m16 16 4 4"/></svg>
+              </button>
+              <span class="mono-pill">118%</span>
+              <button class="tool icon-only" title="Zoom in" aria-label="Zoom in">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="6"/><path d="M11 8v6"/><path d="M8 11h6"/><path d="m16 16 4 4"/></svg>
+              </button>
+              <button class="tool icon-only" title="Actual size" aria-label="Actual size">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3H3v5"/><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M16 21h5v-5"/></svg>
+              </button>
+            </div>
+            <div class="right">
+              <label class="reader-search">
+                <span>⌕</span>
+                <input value="resource" aria-label="Search document">
+              </label>
+              <span class="mono-pill">3 / 18</span>
+              <button class="tool ghost icon-only" title="Previous match" aria-label="Previous match">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m18 15-6-6-6 6"/></svg>
+              </button>
+              <button class="tool ghost icon-only" title="Next match" aria-label="Next match">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="page-area">
+            <aside class="page-meta-rail" aria-label="Page metadata">
+              <div class="side-badge"><strong>14</strong>current page</div>
+              <div class="side-badge"><strong>3</strong>linked notes</div>
+              <div class="side-badge"><strong>18</strong>matches</div>
+            </aside>
+
+            <article class="pdf-page">
+              <div class="paper-label">Chapter 03 · Capacity Planning</div>
+              <h1 class="paper-title">Local AI Resource Planning and Deployment Boundaries</h1>
+              <p class="paper-abstract">
+                This page is treated as the primary artifact. Search, outline, and notes are organized around the
+                rendered page instead of replacing it with a dashboard.
+              </p>
+
+              <div class="paper-grid">
+                <div class="paper-copy">
+                  <p>
+                    The recommended deployment starts with a small master node and expands worker capacity only when
+                    measured throughput requires it. The reader should preserve the original page while letting the
+                    user build a research trail beside it.
+                  </p>
+                  <p>
+                    For repeated review work, <mark>resource planning</mark> terms should be located, cited, and
+                    converted into notes without forcing the user to leave the current page context.
+                  </p>
+                  <div class="quote-pull">
+                    The product value is not only opening a PDF. It is reducing the distance between a source page,
+                    a search result, and a reusable research note.
+                  </div>
+                  <p>
+                    A research-first PDF client should make document structure visible, keep match excerpts close,
+                    and expose enough metadata for a reviewer to trust the current reading position.
+                  </p>
+                </div>
+
+                <aside class="figure">
+                  <div class="matrix" aria-label="Resource planning matrix">
+                    <div class="cell hot"></div><div class="cell"></div><div class="cell cool"></div><div class="cell"></div><div class="cell warm"></div>
+                    <div class="cell"></div><div class="cell hot"></div><div class="cell"></div><div class="cell cool"></div><div class="cell"></div>
+                    <div class="cell warm"></div><div class="cell"></div><div class="cell hot"></div><div class="cell"></div><div class="cell cool"></div>
+                    <div class="cell"></div><div class="cell cool"></div><div class="cell"></div><div class="cell warm"></div><div class="cell"></div>
+                    <div class="cell hot"></div><div class="cell"></div><div class="cell"></div><div class="cell cool"></div><div class="cell warm"></div>
+                  </div>
+                  <div class="figure-caption">
+                    Fig. 3.4 · Planning risk map extracted from the source page.
+                  </div>
+                </aside>
+              </div>
+
+              <div class="annotation-anchor">A3</div>
+              <div class="page-footer">
+                <span>BeeMax Planning Reference</span>
+                <span>14</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <aside class="inspector">
+          <div class="inspector-header">
+            <div class="inspector-title">Research Inspector</div>
+            <div class="inspector-subtitle">Search evidence, outline, and page-linked notes.</div>
+          </div>
+
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="search">Search</button>
+            <button class="tab" data-tab="outline">Outline</button>
+            <button class="tab" data-tab="notes">Notes</button>
+          </div>
+
+          <div class="inspector-body">
+            <section class="pane active" id="pane-search">
+              <div class="metric-row">
+                <div class="metric"><strong>96</strong><span>pages</span></div>
+                <div class="metric"><strong>18</strong><span>matches</span></div>
+                <div class="metric"><strong>3</strong><span>notes</span></div>
+                <div class="metric"><strong>4.2</strong><span>MB</span></div>
+              </div>
+
+              <article class="synthesis-card">
+                <div class="card-kicker"><span>Synthesis</span><span>current page</span></div>
+                <div class="card-title">Capacity planning is the decision hinge.</div>
+                <div class="card-copy">
+                  The highlighted section links resource planning to deployment boundaries and procurement timing.
+                </div>
+                <div class="tag-row">
+                  <span class="tag">capacity</span>
+                  <span class="tag green">deployment</span>
+                  <span class="tag">procurement</span>
+                </div>
+              </article>
+
+              <article class="result-card active">
+                <div class="card-kicker"><span>Page 14</span><span>3 / 18</span></div>
+                <div class="card-title">resource planning</div>
+                <div class="card-copy">
+                  resource planning terms should be located, cited, and converted into notes...
+                </div>
+              </article>
+
+              <article class="result-card">
+                <div class="card-kicker"><span>Page 22</span><span>4 / 18</span></div>
+                <div class="card-title">worker capacity</div>
+                <div class="card-copy">
+                  planning assumptions change when local GPU nodes are added to the pool...
+                </div>
+              </article>
+
+              <article class="result-card">
+                <div class="card-kicker"><span>Page 57</span><span>11 / 18</span></div>
+                <div class="card-title">procurement timing</div>
+                <div class="card-copy">
+                  capacity planning is reviewed before hardware procurement and deployment...
+                </div>
+              </article>
+            </section>
+
+            <section class="pane" id="pane-outline">
+              <div class="outline-card">
+                <div class="outline-row"><b>1. Executive summary</b><span class="page-number">3</span></div>
+                <div class="outline-row"><b>2. Model selection</b><span class="page-number">8</span></div>
+                <div class="outline-row"><b>3. Capacity planning</b><span class="page-number">14</span></div>
+                <div class="outline-row"><span>3.1 Master node</span><span class="page-number">16</span></div>
+                <div class="outline-row"><span>3.2 Worker expansion</span><span class="page-number">22</span></div>
+                <div class="outline-row"><b>4. Deployment boundary</b><span class="page-number">31</span></div>
+                <div class="outline-row"><b>5. Cost review</b><span class="page-number">68</span></div>
+              </div>
+            </section>
+
+            <section class="pane" id="pane-notes">
+              <article class="note-card">
+                <div class="card-kicker"><span>Note A3</span><span>Page 14</span></div>
+                <div class="card-title">Procurement depends on measured throughput.</div>
+                <div class="card-copy">
+                  Use this as a quote candidate in the deployment boundary section.
+                </div>
+              </article>
+
+              <article class="note-card">
+                <div class="card-kicker"><span>Draft note</span><span>linked</span></div>
+                <textarea>Capacity expansion should be triggered by throughput evidence, not by upfront hardware assumptions.</textarea>
+                <button class="small-action">Save Note</button>
+              </article>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+    const panes = {
+      search: document.getElementById('pane-search'),
+      outline: document.getElementById('pane-outline'),
+      notes: document.getElementById('pane-notes')
+    };
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach((item) => item.classList.remove('active'));
+        Object.values(panes).forEach((pane) => pane.classList.remove('active'));
+        tab.classList.add('active');
+        panes[tab.dataset.tab].classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

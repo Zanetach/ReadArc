@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="76" y1="70" x2="426" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FBFCFF"/>
+      <stop offset="0.47" stop-color="#E7F1FF"/>
+      <stop offset="1" stop-color="#DFF8EA"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="132" y1="96" x2="376" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F5F8FB"/>
+    </linearGradient>
+    <filter id="shadow" x="72" y="62" width="372" height="386" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="17" flood-color="#0B5AAE" flood-opacity="0.17"/>
+    </filter>
+  </defs>
+  <rect x="56" y="48" width="400" height="400" rx="92" fill="url(#bg)"/>
+  <rect x="60" y="52" width="392" height="392" rx="88" stroke="white" stroke-opacity="0.72" stroke-width="8"/>
+  <g filter="url(#shadow)">
+    <path d="M132 101C132 91.611 139.611 84 149 84H299L372 157V392C372 401.389 364.389 409 355 409H149C139.611 409 132 401.389 132 392V101Z" fill="url(#panel)"/>
+    <path d="M299 84V137C299 148.046 307.954 157 319 157H372L299 84Z" fill="#CCE0FF"/>
+    <rect x="168" y="196" width="104" height="14" rx="7" fill="#007AFF" fill-opacity="0.48"/>
+    <rect x="168" y="235" width="154" height="13" rx="6.5" fill="#6B7280" fill-opacity="0.22"/>
+    <rect x="168" y="273" width="122" height="13" rx="6.5" fill="#6B7280" fill-opacity="0.18"/>
+  </g>
+  <path d="M255 289C255 275.745 265.745 265 279 265H371C384.255 265 395 275.745 395 289V335C395 348.255 384.255 359 371 359H326L294 388V359H279C265.745 359 255 348.255 255 335V289Z" fill="#123B2A"/>
+  <circle cx="295" cy="312" r="7" fill="#78E08F"/>
+  <circle cx="325" cy="312" r="7" fill="#78E08F"/>
+  <circle cx="355" cy="312" r="7" fill="#78E08F"/>
+  <path d="M224 140L233 161L256 170L233 179L224 201L215 179L192 170L215 161L224 140Z" fill="#2A8C55"/>
+  <path d="M384 118L390 132L405 138L390 144L384 158L378 144L363 138L378 132L384 118Z" fill="#007AFF"/>
+</svg>

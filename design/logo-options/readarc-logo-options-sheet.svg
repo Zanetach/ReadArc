@@ -1,0 +1,111 @@
+<svg width="1440" height="980" viewBox="0 0 1440 980" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font: 700 42px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif; fill: #15171A; }
+      .subtitle { font: 400 20px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #626A73; }
+      .label { font: 700 22px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #15171A; }
+      .body { font: 400 16px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #626A73; }
+      .tag { font: 700 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #3D4652; letter-spacing: 0.5px; }
+    </style>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1440" y2="980" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#EEF3F8"/>
+    </linearGradient>
+    <filter id="cardShadow" x="0" y="0" width="1440" height="980" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#334155" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="1440" height="980" fill="url(#pageBg)"/>
+  <text x="72" y="84" class="title">ReadArc logo icon directions</text>
+  <text x="72" y="123" class="subtitle">Four vector-friendly options based on the app: native macOS PDF reading, search, recent library, inspector, and agent chat.</text>
+
+  <g transform="translate(72 178)">
+    <rect width="608" height="326" rx="24" fill="white" filter="url(#cardShadow)"/>
+    <svg x="36" y="34" width="218" height="218" viewBox="0 0 512 512">
+      <rect x="56" y="48" width="400" height="400" rx="98" fill="#DDEEFF"/>
+      <rect x="60" y="52" width="392" height="392" rx="94" stroke="white" stroke-opacity="0.76" stroke-width="8"/>
+      <path d="M154 112C154 101.507 162.507 93 173 93H302L374 165V382C374 392.493 365.493 401 355 401H173C162.507 401 154 392.493 154 382V112Z" fill="white"/>
+      <path d="M302 93V145C302 156.046 310.954 165 322 165H374L302 93Z" fill="#C5DCFF"/>
+      <path d="M174 212H309" stroke="#FFB627" stroke-width="35" stroke-linecap="round" stroke-opacity="0.42"/>
+      <path d="M191 212H310" stroke="#1F7AFF" stroke-width="18" stroke-linecap="round"/>
+      <path d="M191 258H325" stroke="#A5B0BF" stroke-width="14" stroke-linecap="round" stroke-opacity="0.42"/>
+      <path d="M191 302H278" stroke="#A5B0BF" stroke-width="14" stroke-linecap="round" stroke-opacity="0.34"/>
+      <circle cx="318" cy="324" r="55" fill="#F7FBFF" fill-opacity="0.68" stroke="#007AFF" stroke-width="25"/>
+      <path d="M358 364L411 417" stroke="#007AFF" stroke-width="25" stroke-linecap="round"/>
+      <path d="M301 322L319 340L353 302" stroke="#2A8C55" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <text x="288" y="72" class="tag">OPTION A</text>
+    <text x="288" y="106" class="label">Spotlight Reader</text>
+    <text x="288" y="140" class="body">Most direct: page, highlighted match,</text>
+    <text x="288" y="166" class="body">and search confirmation. Best for a</text>
+    <text x="288" y="192" class="body">clear PDF reader identity.</text>
+  </g>
+
+  <g transform="translate(760 178)">
+    <rect width="608" height="326" rx="24" fill="white" filter="url(#cardShadow)"/>
+    <svg x="36" y="34" width="218" height="218" viewBox="0 0 512 512">
+      <rect x="56" y="48" width="400" height="400" rx="92" fill="#E7F1FF"/>
+      <rect x="60" y="52" width="392" height="392" rx="88" stroke="white" stroke-opacity="0.72" stroke-width="8"/>
+      <path d="M132 101C132 91.611 139.611 84 149 84H299L372 157V392C372 401.389 364.389 409 355 409H149C139.611 409 132 401.389 132 392V101Z" fill="white"/>
+      <path d="M299 84V137C299 148.046 307.954 157 319 157H372L299 84Z" fill="#CCE0FF"/>
+      <rect x="168" y="196" width="104" height="14" rx="7" fill="#007AFF" fill-opacity="0.48"/>
+      <rect x="168" y="235" width="154" height="13" rx="6.5" fill="#6B7280" fill-opacity="0.22"/>
+      <rect x="168" y="273" width="122" height="13" rx="6.5" fill="#6B7280" fill-opacity="0.18"/>
+      <path d="M255 289C255 275.745 265.745 265 279 265H371C384.255 265 395 275.745 395 289V335C395 348.255 384.255 359 371 359H326L294 388V359H279C265.745 359 255 348.255 255 335V289Z" fill="#123B2A"/>
+      <circle cx="295" cy="312" r="7" fill="#78E08F"/>
+      <circle cx="325" cy="312" r="7" fill="#78E08F"/>
+      <circle cx="355" cy="312" r="7" fill="#78E08F"/>
+      <path d="M224 140L233 161L256 170L233 179L224 201L215 179L192 170L215 161L224 140Z" fill="#2A8C55"/>
+    </svg>
+    <text x="288" y="72" class="tag">OPTION B</text>
+    <text x="288" y="106" class="label">Research Companion</text>
+    <text x="288" y="140" class="body">Adds the app's agent/chat side panel</text>
+    <text x="288" y="166" class="body">to the PDF page. Best if the product</text>
+    <text x="288" y="192" class="body">should feel AI-assisted.</text>
+  </g>
+
+  <g transform="translate(72 558)">
+    <rect width="608" height="326" rx="24" fill="white" filter="url(#cardShadow)"/>
+    <svg x="36" y="34" width="218" height="218" viewBox="0 0 512 512">
+      <rect x="56" y="48" width="400" height="400" rx="104" fill="#D9E9FF"/>
+      <rect x="60" y="52" width="392" height="392" rx="100" stroke="white" stroke-opacity="0.72" stroke-width="8"/>
+      <path d="M156 119C156 109.059 164.059 101 174 101H291L362 172V374C362 383.941 353.941 392 344 392H174C164.059 392 156 383.941 156 374V119Z" fill="white"/>
+      <path d="M291 101V153C291 163.493 299.507 172 310 172H362L291 101Z" fill="#C7DFFF"/>
+      <path d="M198 188H300C325.405 188 346 208.595 346 234C346 259.405 325.405 280 300 280H246V341H198V188Z" fill="#0B84FF"/>
+      <path d="M246 230H295C303.284 230 310 236.716 310 245C310 253.284 303.284 260 295 260H246V230Z" fill="white"/>
+      <path d="M151 339C151 326.85 160.85 317 173 317H190V339H173V356H151V339Z" fill="#1D1D1F" fill-opacity="0.70"/>
+      <path d="M361 339C361 326.85 351.15 317 339 317H322V339H339V356H361V339Z" fill="#1D1D1F" fill-opacity="0.70"/>
+      <circle cx="339" cy="339" r="35" stroke="#38A169" stroke-width="16"/>
+      <path d="M364 364L397 397" stroke="#38A169" stroke-width="16" stroke-linecap="round"/>
+    </svg>
+    <text x="288" y="72" class="tag">OPTION C</text>
+    <text x="288" y="106" class="label">Command Fold</text>
+    <text x="288" y="140" class="body">Abstract PDF mark with command/search</text>
+    <text x="288" y="166" class="body">details. Best for a more branded,</text>
+    <text x="288" y="192" class="body">less literal Mac utility icon.</text>
+  </g>
+
+  <g transform="translate(760 558)">
+    <rect width="608" height="326" rx="24" fill="white" filter="url(#cardShadow)"/>
+    <svg x="36" y="34" width="218" height="218" viewBox="0 0 512 512">
+      <rect x="56" y="48" width="400" height="400" rx="88" fill="#EAF2FF"/>
+      <rect x="60" y="52" width="392" height="392" rx="84" stroke="white" stroke-opacity="0.76" stroke-width="8"/>
+      <path d="M136 152C136 142.059 144.059 134 154 134H307C316.941 134 325 142.059 325 152V368C325 377.941 316.941 386 307 386H154C144.059 386 136 377.941 136 368V152Z" fill="#EFF6FF"/>
+      <path d="M161 119C161 109.059 169.059 101 179 101H332C341.941 101 350 109.059 350 119V335C350 344.941 341.941 353 332 353H179C169.059 353 161 344.941 161 335V119Z" fill="white"/>
+      <path d="M268 101H332C341.941 101 350 109.059 350 119V335C350 344.941 341.941 353 332 353H268V101Z" fill="#F4F7FA"/>
+      <path d="M202 177H297" stroke="#0B84FF" stroke-width="15" stroke-linecap="round"/>
+      <path d="M202 218H309" stroke="#6B7280" stroke-width="13" stroke-linecap="round" stroke-opacity="0.24"/>
+      <path d="M202 256H280" stroke="#6B7280" stroke-width="13" stroke-linecap="round" stroke-opacity="0.18"/>
+      <path d="M222 101H268V176L245 158L222 176V101Z" fill="#FFB627"/>
+      <circle cx="322" cy="320" r="62" fill="#0B1F3A"/>
+      <circle cx="322" cy="320" r="43" stroke="#C8E1FF" stroke-width="8"/>
+      <path d="M322 265V286M322 354V375M267 320H288M356 320H377" stroke="#78E08F" stroke-width="11" stroke-linecap="round"/>
+      <path d="M303 339L316 303L341 331L303 339Z" fill="#78E08F"/>
+    </svg>
+    <text x="288" y="72" class="tag">OPTION D</text>
+    <text x="288" y="106" class="label">Library Compass</text>
+    <text x="288" y="140" class="body">Stacks, bookmark, and navigation lens</text>
+    <text x="288" y="166" class="body">lean into document library and research.</text>
+    <text x="288" y="192" class="body">Best for repeated review workflows.</text>
+  </g>
+</svg>

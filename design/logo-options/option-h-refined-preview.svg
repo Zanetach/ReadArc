@@ -1,0 +1,36 @@
+<svg width="1440" height="760" viewBox="0 0 1440 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font: 800 44px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif; fill: #101418; }
+      .subtitle { font: 400 20px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #5E6672; }
+      .label { font: 760 25px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #101418; }
+      .body { font: 400 17px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #5E6672; }
+      .tag { font: 760 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #3B4654; letter-spacing: 0.6px; }
+    </style>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1440" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#EAF0F7"/>
+    </linearGradient>
+    <filter id="cardShadow" x="0" y="0" width="1440" height="760" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#25364D" flood-opacity="0.11"/>
+    </filter>
+  </defs>
+  <rect width="1440" height="760" fill="url(#pageBg)"/>
+  <text x="72" y="84" class="title">Option H refined, Citation Orbit</text>
+  <text x="72" y="123" class="subtitle">The selected direction is tightened into a stronger AppIcon: heavier reading path, clearer open-PDF form, fewer decorative fragments.</text>
+
+  <g transform="translate(92 188)">
+    <rect width="560" height="430" rx="28" fill="white" filter="url(#cardShadow)"/>
+    <text x="42" y="62" class="tag">BEFORE</text>
+    <image href="option-h-citation-orbit.png" x="130" y="94" width="300" height="300"/>
+  </g>
+
+  <g transform="translate(788 188)">
+    <rect width="560" height="430" rx="28" fill="white" filter="url(#cardShadow)"/>
+    <text x="42" y="62" class="tag">REFINED</text>
+    <image href="option-h-refined-citation-orbit.png" x="130" y="94" width="300" height="300"/>
+  </g>
+
+  <text x="92" y="680" class="label">What changed</text>
+  <text x="92" y="714" class="body">The orbit is now the brand signature, the book has more depth, and the citation nodes are large enough to survive Dock and Finder sizes.</text>
+</svg>

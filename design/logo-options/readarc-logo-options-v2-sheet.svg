@@ -1,0 +1,61 @@
+<svg width="1440" height="980" viewBox="0 0 1440 980" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font: 800 44px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif; fill: #101418; }
+      .subtitle { font: 400 20px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #5E6672; }
+      .label { font: 760 23px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #101418; }
+      .body { font: 400 16px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #5E6672; }
+      .tag { font: 760 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; fill: #3B4654; letter-spacing: 0.6px; }
+    </style>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1440" y2="980" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F9FC"/>
+      <stop offset="1" stop-color="#EAF0F7"/>
+    </linearGradient>
+    <filter id="cardShadow" x="0" y="0" width="1440" height="980" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#25364D" flood-opacity="0.11"/>
+    </filter>
+  </defs>
+  <rect width="1440" height="980" fill="url(#pageBg)"/>
+  <text x="72" y="84" class="title">ReadArc logo directions, v2</text>
+  <text x="72" y="123" class="subtitle">More distinctive icon concepts, built around brand memory, PDF research, margin intelligence, and native Mac depth.</text>
+
+  <g transform="translate(72 178)">
+    <rect width="608" height="326" rx="26" fill="white" filter="url(#cardShadow)"/>
+    <image href="option-e-origami-spotlight.png" x="36" y="34" width="218" height="218"/>
+    <text x="288" y="72" class="tag">OPTION E</text>
+    <text x="288" y="106" class="label">Origami Spotlight</text>
+    <text x="288" y="140" class="body">A folded page becomes a bold reader</text>
+    <text x="288" y="166" class="body">glyph, with search as a neon aperture.</text>
+    <text x="288" y="192" class="body">Most premium and memorable.</text>
+  </g>
+
+  <g transform="translate(760 178)">
+    <rect width="608" height="326" rx="26" fill="white" filter="url(#cardShadow)"/>
+    <image href="option-f-margin-intelligence.png" x="36" y="34" width="218" height="218"/>
+    <text x="288" y="72" class="tag">OPTION F</text>
+    <text x="288" y="106" class="label">Margin Intelligence</text>
+    <text x="288" y="140" class="body">Turns the inspector into a dark smart</text>
+    <text x="288" y="166" class="body">margin. Best match for agent assisted</text>
+    <text x="288" y="192" class="body">PDF review.</text>
+  </g>
+
+  <g transform="translate(72 558)">
+    <rect width="608" height="326" rx="26" fill="white" filter="url(#cardShadow)"/>
+    <image href="option-g-pdf-prism.png" x="36" y="34" width="218" height="218"/>
+    <text x="288" y="72" class="tag">OPTION G</text>
+    <text x="288" y="106" class="label">PDF Prism</text>
+    <text x="288" y="140" class="body">A dimensional page block, more like a</text>
+    <text x="288" y="166" class="body">standalone product mark than a utility</text>
+    <text x="288" y="192" class="body">symbol. Strongest silhouette.</text>
+  </g>
+
+  <g transform="translate(760 558)">
+    <rect width="608" height="326" rx="26" fill="white" filter="url(#cardShadow)"/>
+    <image href="option-h-citation-orbit.png" x="36" y="34" width="218" height="218"/>
+    <text x="288" y="72" class="tag">OPTION H</text>
+    <text x="288" y="106" class="label">Citation Orbit</text>
+    <text x="288" y="140" class="body">Open document, reference points, and</text>
+    <text x="288" y="166" class="body">reading flow. Best for research and</text>
+    <text x="288" y="192" class="body">annotation workflows.</text>
+  </g>
+</svg>

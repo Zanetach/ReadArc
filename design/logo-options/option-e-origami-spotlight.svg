@@ -1,0 +1,39 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="66" y1="56" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1220"/>
+      <stop offset="0.55" stop-color="#16385E"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+    <linearGradient id="pageA" x1="141" y1="104" x2="371" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="0.58" stop-color="#EAF4FF"/>
+      <stop offset="1" stop-color="#BFD9FF"/>
+    </linearGradient>
+    <linearGradient id="pageB" x1="281" y1="86" x2="365" y2="218" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9BE7FF"/>
+      <stop offset="1" stop-color="#4F8DFF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(274 271) rotate(64) scale(159 141)">
+      <stop stop-color="#7DF9C5" stop-opacity="0.95"/>
+      <stop offset="0.38" stop-color="#20C997" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#20C997" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="74" y="56" width="360" height="408" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#020617" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect x="56" y="48" width="400" height="400" rx="96" fill="url(#bg)"/>
+  <rect x="61" y="53" width="390" height="390" rx="91" stroke="white" stroke-opacity="0.16" stroke-width="10"/>
+  <circle cx="275" cy="278" r="156" fill="url(#glow)"/>
+  <g filter="url(#shadow)">
+    <path d="M152 120C152 108.954 160.954 100 172 100H293L368 175V381C368 392.046 359.046 401 348 401H172C160.954 401 152 392.046 152 381V120Z" fill="url(#pageA)"/>
+    <path d="M293 100V154C293 165.598 302.402 175 314 175H368L293 100Z" fill="url(#pageB)"/>
+    <path d="M209 183C224 173 242 168 263 168C305 168 336 195 336 233C336 273 306 298 258 298H229V356H188V183H209Z" fill="#0F172A"/>
+    <path d="M229 207V260H258C282 260 296 250 296 233C296 216 282 207 258 207H229Z" fill="#F8FBFF"/>
+    <path d="M198 324H321" stroke="#FFBE3D" stroke-width="19" stroke-linecap="round"/>
+    <path d="M198 324H271" stroke="#FF7A1A" stroke-width="19" stroke-linecap="round"/>
+  </g>
+  <path d="M365 332L405 372" stroke="#7DF9C5" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="342" cy="309" r="36" stroke="#7DF9C5" stroke-width="18"/>
+</svg>

@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReadArc · Native Pro Prototype</title>
+  <!--
+    Huashu Junior Pass
+    Assumptions:
+    - This is a native macOS PDF reader, not a web dashboard.
+    - Primary user: office/research users who open long PDFs repeatedly.
+    - Tone: calm, precise, native, durable for daily use.
+    - Current Swift slice already supports open PDF, PDFKit rendering, recents, page/zoom/search.
+    - This prototype adds a right inspector as a design target; it is not yet implemented in Swift.
+
+    Reasoning:
+    - Keep macOS source-list density on the left.
+    - Put reading surface at the visual center, with page and search controls close to the document.
+    - Avoid marketing hero/layout tropes; this is an application surface.
+  -->
+  <style>
+    :root {
+      --app-bg: #ECEAE5;
+      --window: #F7F7F5;
+      --chrome: rgba(247, 247, 245, 0.78);
+      --chrome-border: rgba(52, 50, 46, 0.13);
+      --sidebar: #EFEDE8;
+      --surface: #FFFFFF;
+      --surface-alt: #F4F2ED;
+      --ink: #25231F;
+      --muted: #6F6A61;
+      --faint: #9A9489;
+      --blue: #1867D5;
+      --blue-soft: #E7F0FF;
+      --amber: #C77719;
+      --amber-soft: #FFF0D6;
+      --green: #33785A;
+      --shadow: 0 28px 70px rgba(42, 37, 28, 0.22), 0 0 0 1px rgba(42, 37, 28, 0.08);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      color: var(--ink);
+      background:
+        linear-gradient(135deg, rgba(24, 103, 213, 0.10), transparent 28%),
+        linear-gradient(320deg, rgba(199, 119, 25, 0.12), transparent 30%),
+        var(--app-bg);
+      letter-spacing: 0;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    .stage {
+      min-height: 100vh;
+      padding: 28px;
+      display: grid;
+      place-items: center;
+    }
+
+    .prototype-shell {
+      width: min(1480px, calc(100vw - 56px));
+    }
+
+    .window {
+      height: min(900px, calc(100vh - 96px));
+      min-height: 720px;
+      background: var(--window);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-rows: 38px 54px 1fr;
+    }
+
+    .titlebar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      background: linear-gradient(#F9F8F5, #E7E4DE);
+      border-bottom: 1px solid var(--chrome-border);
+      user-select: none;
+    }
+
+    .lights {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .light {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 0.5px solid rgba(0, 0, 0, 0.16);
+    }
+
+    .close { background: #FF5F57; }
+    .min { background: #FEBC2E; }
+    .max { background: #28C840; }
+
+    .window-title {
+      position: absolute;
+      left: 140px;
+      right: 140px;
+      text-align: center;
+      font-size: 13px;
+      color: #514C44;
+      font-weight: 500;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 300px 1fr 380px;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 14px;
+      background: var(--chrome);
+      border-bottom: 1px solid var(--chrome-border);
+      backdrop-filter: blur(18px);
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .toolbar-group.center {
+      justify-content: center;
+    }
+
+    .toolbar-group.right {
+      justify-content: flex-end;
+    }
+
+    .tool-btn {
+      height: 32px;
+      min-width: 32px;
+      border: 1px solid rgba(60, 58, 52, 0.14);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.68);
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .tool-btn:hover, .tool-btn.active {
+      background: #FFFFFF;
+      border-color: rgba(24, 103, 213, 0.35);
+    }
+
+    .tool-icon {
+      width: 16px;
+      text-align: center;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .page-pill, .zoom-pill, .match-pill {
+      height: 28px;
+      min-width: 78px;
+      border-radius: 7px;
+      background: rgba(37, 35, 31, 0.06);
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 9px;
+      white-space: nowrap;
+    }
+
+    .search {
+      height: 32px;
+      width: min(250px, 100%);
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      align-items: center;
+      border: 1px solid rgba(60, 58, 52, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.76);
+      padding: 0 10px;
+      color: var(--muted);
+    }
+
+    .search input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      min-width: 0;
+    }
+
+    .app-grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 260px minmax(520px, 1fr) 300px;
+      transition: grid-template-columns 180ms ease;
+    }
+
+    .app-grid.inspector-hidden {
+      grid-template-columns: 260px minmax(520px, 1fr) 0;
+    }
+
+    .sidebar {
+      min-width: 0;
+      background: var(--sidebar);
+      border-right: 1px solid var(--chrome-border);
+      padding: 16px 12px;
+      overflow: auto;
+    }
+
+    .section-label {
+      margin: 14px 8px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--faint);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .source-row, .recent-row {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 9px;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 8px;
+      border-radius: 7px;
+      cursor: pointer;
+    }
+
+    .source-row:hover, .recent-row:hover {
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    .recent-row.active {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .row-icon {
+      width: 18px;
+      text-align: center;
+      color: inherit;
+      opacity: 0.78;
+      font-size: 14px;
+    }
+
+    .row-title {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .row-path {
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .content {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 42px 1fr;
+      background: #DCD9D1;
+      overflow: hidden;
+    }
+
+    .document-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 18px;
+      background: rgba(250, 249, 246, 0.7);
+      border-bottom: 1px solid rgba(52, 50, 46, 0.10);
+    }
+
+    .doc-name {
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .doc-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 14px;
+      white-space: nowrap;
+    }
+
+    .reader-canvas {
+      min-height: 0;
+      overflow: auto;
+      padding: 34px 38px 70px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .page-stack {
+      width: min(760px, 100%);
+      display: grid;
+      gap: 26px;
+    }
+
+    .pdf-page {
+      background: var(--surface);
+      min-height: 900px;
+      box-shadow: 0 16px 36px rgba(44, 39, 30, 0.20);
+      border: 1px solid rgba(44, 39, 30, 0.08);
+      padding: 62px 74px;
+      color: #22201C;
+    }
+
+    .paper-kicker {
+      font-family: var(--mono);
+      color: var(--blue);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 18px;
+    }
+
+    .paper-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(30px, 3.4vw, 45px);
+      line-height: 1.08;
+      letter-spacing: 0;
+      margin: 0 0 18px;
+      text-wrap: pretty;
+    }
+
+    .paper-subtitle {
+      font-size: 15px;
+      line-height: 1.65;
+      color: #5D574E;
+      margin: 0 0 34px;
+      max-width: 590px;
+    }
+
+    .paper-grid {
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 38px;
+      align-items: start;
+    }
+
+    .paper-copy p {
+      font-size: 14px;
+      line-height: 1.88;
+      margin: 0 0 16px;
+      color: #34312B;
+      text-wrap: pretty;
+    }
+
+    mark {
+      background: var(--amber-soft);
+      color: #5E3907;
+      border-radius: 3px;
+      padding: 1px 3px;
+    }
+
+    .note-box {
+      border-left: 3px solid var(--amber);
+      padding: 10px 0 10px 13px;
+      margin: 24px 0;
+      color: #5D5141;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .figure-card {
+      border: 1px solid rgba(37, 35, 31, 0.14);
+      border-radius: 5px;
+      padding: 12px;
+      background: #FAF9F5;
+    }
+
+    .figure-bars {
+      height: 130px;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      border-bottom: 1px solid rgba(37, 35, 31, 0.16);
+      padding-bottom: 8px;
+    }
+
+    .bar {
+      flex: 1;
+      min-width: 0;
+      background: linear-gradient(#4380D8, #1E5FBF);
+      border-radius: 3px 3px 0 0;
+    }
+
+    .bar:nth-child(2) { height: 52%; background: linear-gradient(#7B9773, #4E745B); }
+    .bar:nth-child(3) { height: 72%; }
+    .bar:nth-child(4) { height: 44%; background: linear-gradient(#D9A04A, #B97719); }
+    .bar:nth-child(5) { height: 82%; }
+    .bar:nth-child(6) { height: 58%; background: linear-gradient(#7B9773, #4E745B); }
+
+    .figure-caption {
+      margin-top: 10px;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .page-footer {
+      margin-top: 44px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(37, 35, 31, 0.14);
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+
+    .inspector {
+      min-width: 0;
+      background: #F5F3EE;
+      border-left: 1px solid var(--chrome-border);
+      overflow: hidden auto;
+      padding: 18px;
+    }
+
+    .app-grid.inspector-hidden .inspector {
+      display: none;
+    }
+
+    .inspector h2 {
+      margin: 0 0 4px;
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    .inspector-subtitle {
+      margin: 0 0 18px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .panel {
+      border: 1px solid rgba(52, 50, 46, 0.12);
+      background: rgba(255, 255, 255, 0.66);
+      border-radius: 8px;
+      padding: 13px;
+      margin-bottom: 14px;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 10px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric {
+      border-radius: 7px;
+      background: var(--surface-alt);
+      padding: 10px;
+    }
+
+    .metric strong {
+      display: block;
+      font-family: var(--mono);
+      font-size: 16px;
+      margin-bottom: 2px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .match-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .match {
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--amber-soft);
+      border: 1px solid rgba(199, 119, 25, 0.20);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .match b {
+      color: #75480C;
+    }
+
+    .outline {
+      display: grid;
+      gap: 6px;
+    }
+
+    .outline-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(52, 50, 46, 0.07);
+    }
+
+    .notes {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: start;
+      color: rgba(37, 35, 31, 0.74);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .notes strong {
+      color: var(--ink);
+    }
+
+    .mode-switcher {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      border: 1px solid rgba(52, 50, 46, 0.16);
+      background: rgba(255, 255, 255, 0.54);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    .chip.active {
+      background: var(--ink);
+      color: white;
+      border-color: var(--ink);
+    }
+
+    body.focus-mode .sidebar,
+    body.focus-mode .inspector,
+    body.focus-mode .document-strip {
+      opacity: 0.18;
+    }
+
+    body.focus-mode .reader-canvas {
+      background: #CCC7BD;
+    }
+
+    body.research-mode .inspector {
+      background: #EEF2ED;
+    }
+
+    body.research-mode .panel:nth-of-type(2) {
+      border-color: rgba(51, 120, 90, 0.35);
+      box-shadow: inset 3px 0 0 var(--green);
+    }
+
+    @media (max-width: 1100px) {
+      .stage { padding: 16px; }
+      .prototype-shell { width: calc(100vw - 32px); }
+      .window {
+        min-height: 760px;
+        height: auto;
+      }
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+      .toolbar-group.center,
+      .toolbar-group.right {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+      .app-grid,
+      .app-grid.inspector-hidden {
+        grid-template-columns: 220px minmax(480px, 1fr);
+      }
+      .inspector {
+        display: none;
+      }
+      .pdf-page {
+        padding: 44px 46px;
+      }
+      .paper-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="prototype-shell">
+      <section class="window" aria-label="ReadArc Native Pro Prototype">
+        <div class="titlebar">
+          <div class="lights" aria-hidden="true">
+            <span class="light close"></span>
+            <span class="light min"></span>
+            <span class="light max"></span>
+          </div>
+          <div class="window-title">ReadArc · Native Pro</div>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <button class="tool-btn"><span class="tool-icon">↥</span>Open PDF</button>
+            <button class="tool-btn" title="Previous page"><span class="tool-icon">‹</span></button>
+            <button class="tool-btn" title="Next page"><span class="tool-icon">›</span></button>
+            <span class="page-pill">14 / 96</span>
+          </div>
+
+          <div class="toolbar-group center">
+            <button class="tool-btn" title="Zoom out"><span class="tool-icon">−</span></button>
+            <span class="zoom-pill">118%</span>
+            <button class="tool-btn" title="Zoom in"><span class="tool-icon">+</span></button>
+            <button class="tool-btn"><span class="tool-icon">⌘</span>Fit Width</button>
+          </div>
+
+          <div class="toolbar-group right">
+            <label class="search">
+              <span>⌕</span>
+              <input id="searchInput" value="resource planning" aria-label="Search PDF">
+            </label>
+            <span class="match-pill">3 / 18</span>
+            <button class="tool-btn" id="toggleInspector"><span class="tool-icon">▥</span>Inspector</button>
+          </div>
+        </div>
+
+        <div class="app-grid" id="appGrid">
+          <aside class="sidebar">
+            <div class="section-label">Library</div>
+            <div class="source-row">
+              <span class="row-icon">□</span>
+              <span class="row-title">Open PDF</span>
+            </div>
+            <div class="source-row">
+              <span class="row-icon">⌘</span>
+              <span class="row-title">Command Center</span>
+            </div>
+
+            <div class="section-label">Recent</div>
+            <div class="recent-row active">
+              <span class="row-icon">▣</span>
+              <div>
+                <div class="row-title">BeeMax Resource Plan</div>
+                <div class="row-path">/Documents/Github</div>
+              </div>
+            </div>
+            <div class="recent-row">
+              <span class="row-icon">▣</span>
+              <div>
+                <div class="row-title">Junhao Quote Rules</div>
+                <div class="row-path">/Junhao-609/AI Quote</div>
+              </div>
+            </div>
+            <div class="recent-row">
+              <span class="row-icon">▣</span>
+              <div>
+                <div class="row-title">PCB Manufacturing Note</div>
+                <div class="row-path">/out/beemax</div>
+              </div>
+            </div>
+            <div class="recent-row">
+              <span class="row-icon">▣</span>
+              <div>
+                <div class="row-title">Product Scope Brief</div>
+                <div class="row-path">/Documents/specs</div>
+              </div>
+            </div>
+          </aside>
+
+          <section class="content">
+            <div class="document-strip">
+              <div class="doc-name">BeeMax_本地大模型资源规划对照表.pdf</div>
+              <div class="doc-meta">
+                <span>96 pages</span>
+                <span>Last opened 16:42</span>
+                <span>PDFKit</span>
+              </div>
+            </div>
+
+            <div class="reader-canvas">
+              <div class="page-stack">
+                <article class="pdf-page">
+                  <div class="paper-kicker">Chapter 03 · Capacity Planning</div>
+                  <h1 class="paper-title">Local AI Resource Planning and Deployment Boundaries</h1>
+                  <p class="paper-subtitle">
+                    This page demonstrates the reader target state: precise PDF rendering, contextual search,
+                    persistent navigation, and a quiet inspector that does not compete with the document.
+                  </p>
+
+                  <div class="paper-grid">
+                    <div class="paper-copy">
+                      <p>
+                        The recommended deployment starts with a small master node and expands worker capacity only
+                        when measured throughput requires it. The document view should keep the original page dominant
+                        and expose operational controls at the edge of attention.
+                      </p>
+                      <p>
+                        For repeated review work, <mark>resource planning</mark> terms should be easy to locate without
+                        replacing the PDF page with a separate search screen. Search is treated as a lightweight layer
+                        over the rendered page, paired with match navigation in the toolbar.
+                      </p>
+                      <div class="note-box">
+                        Design target: page reading stays stable while the sidebar, inspector, and search state behave
+                        like native macOS utilities around the document.
+                      </div>
+                      <p>
+                        The first implementation can ship with recent files, page navigation, zoom, and match jumping.
+                        The next layer adds outline extraction, metadata, annotations, and document comparison.
+                      </p>
+                    </div>
+
+                    <aside class="figure-card">
+                      <div class="figure-bars" aria-label="Capacity bar chart">
+                        <div class="bar" style="height: 64%"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                      </div>
+                      <div class="figure-caption">
+                        Fig. 3.4 · Search and metadata should support reading, not become the primary visual system.
+                      </div>
+                    </aside>
+                  </div>
+
+                  <div class="page-footer">
+                    <span>BeeMax Planning Reference</span>
+                    <span>14</span>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <aside class="inspector">
+            <h2>Document Inspector</h2>
+            <p class="inspector-subtitle">A secondary utility surface for metadata, matches, and outline.</p>
+
+            <section class="panel">
+              <div class="panel-title">Document</div>
+              <div class="metric-grid">
+                <div class="metric"><strong>96</strong><span>pages</span></div>
+                <div class="metric"><strong>18</strong><span>matches</span></div>
+                <div class="metric"><strong>4.2 MB</strong><span>file size</span></div>
+                <div class="metric"><strong>PDF</strong><span>format</span></div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">Search Matches</div>
+              <div class="match-list">
+                <div class="match"><b>Page 14</b><br>resource planning terms should be easy to locate...</div>
+                <div class="match"><b>Page 22</b><br>planning assumptions change when local GPU nodes...</div>
+                <div class="match"><b>Page 57</b><br>capacity planning is reviewed before procurement...</div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">Outline</div>
+              <div class="outline">
+                <div class="outline-row"><span>1. Executive summary</span><span>3</span></div>
+                <div class="outline-row"><span>2. Model selection</span><span>8</span></div>
+                <div class="outline-row"><span>3. Capacity planning</span><span>14</span></div>
+                <div class="outline-row"><span>4. Deployment boundary</span><span>31</span></div>
+                <div class="outline-row"><span>5. Cost review</span><span>68</span></div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <footer class="notes">
+        <div>
+          <strong>Design assumption:</strong>
+          Native Pro keeps the current SwiftUI/PDFKit scope intact while defining the next visual target:
+          a durable macOS reader with source-list navigation, central PDF dominance, and optional inspector density.
+        </div>
+        <div class="mode-switcher" aria-label="Prototype modes">
+          <button class="chip active" data-mode="native">Native Pro</button>
+          <button class="chip" data-mode="focus">Focus Mode</button>
+          <button class="chip" data-mode="research">Research Desk</button>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    const grid = document.getElementById('appGrid');
+    const toggleInspector = document.getElementById('toggleInspector');
+    const chips = Array.from(document.querySelectorAll('.chip'));
+
+    toggleInspector.addEventListener('click', () => {
+      grid.classList.toggle('inspector-hidden');
+      toggleInspector.classList.toggle('active');
+    });
+
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chips.forEach((item) => item.classList.remove('active'));
+        chip.classList.add('active');
+        document.body.classList.remove('focus-mode', 'research-mode');
+        if (chip.dataset.mode === 'focus') {
+          document.body.classList.add('focus-mode');
+        }
+        if (chip.dataset.mode === 'research') {
+          document.body.classList.add('research-mode');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
