@@ -303,7 +303,7 @@ validate_release_readiness() {
 
   if [[ "$PUBLISH" -eq 1 ]]; then
     require_command gh
-    gh auth status -h github.com >/dev/null
+    gh auth status --active -h github.com >/dev/null
 
     local default_branch
     default_branch="$(gh repo view "$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name // ""')"
