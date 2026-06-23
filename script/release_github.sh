@@ -317,11 +317,6 @@ validate_release_readiness() {
 publish_release() {
   [[ "$PUBLISH" -eq 1 ]] || return 0
 
-  local draft_flag=(--draft)
-  if [[ "$DRAFT" -eq 0 ]]; then
-    draft_flag=()
-  fi
-
   if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
     gh release upload "$TAG" "${ASSETS[@]}" --repo "$REPO" --clobber
   else
@@ -331,11 +326,18 @@ publish_release() {
       release_notes="$release_notes"$'\n\n'"Note: this artifact is ad-hoc signed and not notarized because no Developer ID certificate/notary profile is configured on the build machine."
     fi
 
-    gh release create "$TAG" "${ASSETS[@]}" \
-      --repo "$REPO" \
-      --title "$TITLE" \
-      --notes "$release_notes" \
-      "${draft_flag[@]}"
+    if [[ "$DRAFT" -eq 1 ]]; then
+      gh release create "$TAG" "${ASSETS[@]}" \
+        --repo "$REPO" \
+        --title "$TITLE" \
+        --notes "$release_notes" \
+        --draft
+    else
+      gh release create "$TAG" "${ASSETS[@]}" \
+        --repo "$REPO" \
+        --title "$TITLE" \
+        --notes "$release_notes"
+    fi
   fi
 }
 
