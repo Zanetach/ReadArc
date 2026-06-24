@@ -232,7 +232,7 @@ struct AgentChatView: View {
             model.chatMessages.append(
                 ChatMessage(
                     role: .assistant,
-                    text: language.text("chat.agentUnavailable"),
+                    text: String(format: language.text("chat.agentUnavailable"), model.selectedChatAgent.commandName),
                     agent: model.selectedChatAgent,
                     isStreaming: false
                 )

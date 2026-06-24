@@ -9,7 +9,7 @@ APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 PDF_DIR="$DIST_DIR/stress-pdfs"
 REPORT_DIR="$DIST_DIR/stress-reports"
 SAMPLE_SECONDS=20
-CASES="text500,text1000,scan200,mixed300"
+CASES="text100,text500,text1000,chinese100,chinese500,chinese1000,scan100,scan500,image100"
 GENERATE_ONLY=0
 SKIP_BUILD=0
 EXTERNAL_PDFS=()
@@ -19,7 +19,7 @@ usage() {
 usage: $0 [options]
 
 Options:
-  --cases LIST          Comma-separated cases: text500,text1000,scan200,mixed300
+  --cases LIST          Comma-separated cases: text100,text500,text1000,chinese100,chinese500,chinese1000,scan100,scan500,image100,mixed300
   --sample-seconds N   Seconds to sample RSS after opening each PDF. Default: 20
   --generate-only      Generate stress PDFs without launching ReadArc
   --skip-build         Reuse dist/ReadArc.app instead of rebuilding it
@@ -81,13 +81,19 @@ out_dir = sys.argv[1]
 requested = {case.strip() for case in sys.argv[2].split(",") if case.strip()}
 
 CASE_SPECS = {
+    "text100": ("readarc-text-100.pdf", 100, "text"),
     "text500": ("readarc-text-500.pdf", 500, "text"),
     "text1000": ("readarc-text-1000.pdf", 1000, "text"),
+    "scan100": ("readarc-scan-like-100.pdf", 100, "scan"),
     "scan200": ("readarc-scan-like-200.pdf", 200, "scan"),
+    "scan500": ("readarc-scan-like-500.pdf", 500, "scan"),
+    "image100": ("readarc-image-100.pdf", 100, "image"),
     "mixed300": ("readarc-mixed-300.pdf", 300, "mixed"),
 }
 
-unknown = sorted(requested - set(CASE_SPECS))
+CHINESE_CASES = {"chinese100", "chinese500", "chinese1000"}
+python_requested = requested - CHINESE_CASES
+unknown = sorted(python_requested - set(CASE_SPECS))
 if unknown:
     raise SystemExit(f"unknown cases: {', '.join(unknown)}")
 
@@ -138,12 +144,51 @@ def mixed_stream(page_index):
         return scan_stream(page_index)
     return text_stream(page_index, line_count=34)
 
+def image_stream(page_index):
+    lines = [
+        "q",
+        "0.98 g 28 28 556 736 re f",
+        "0.78 0 0 0.78 108 242 cm /Im1 Do",
+        "Q",
+        "q",
+        "0.20 G 1.4 w 108 242 360 360 re S",
+        "0.56 g 128 620 320 18 re f",
+        "0.72 g 128 594 248 10 re f",
+        "0.82 g 128 570 276 10 re f",
+        "Q",
+        "BT /F1 11 Tf 1 0 0 1 128 188 Tm",
+        f"(ReadArc image PDF stress page {page_index + 1:04d}) Tj",
+        "ET",
+    ]
+    return "\n".join(lines).encode("ascii")
+
 def content_for(kind, page_index):
     if kind == "text":
         return text_stream(page_index)
     if kind == "scan":
         return scan_stream(page_index)
+    if kind == "image":
+        return image_stream(page_index)
     return mixed_stream(page_index)
+
+def image_xobject():
+    width = 96
+    height = 96
+    pixels = bytearray()
+    for y in range(height):
+        for x in range(width):
+            r = int(88 + 92 * (x / max(1, width - 1)))
+            g = int(118 + 82 * (y / max(1, height - 1)))
+            b = int(144 + 68 * ((x + y) / max(1, width + height - 2)))
+            if 28 < x < 68 and 28 < y < 68:
+                r, g, b = 170, 218, 126
+            pixels.extend([r, g, b])
+    encoded = pixels.hex().upper().encode("ascii") + b">"
+    return (
+        f"<< /Type /XObject /Subtype /Image /Width {width} /Height {height} "
+        f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode "
+        f"/Length {len(encoded)} >>\nstream\n"
+    ).encode("ascii") + encoded + b"\nendstream"
 
 def write_pdf(path, page_count, kind):
     objects = []
@@ -154,14 +199,23 @@ def write_pdf(path, page_count, kind):
     objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
     objects.append(None)
     objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    image_id = None
+
+    if kind == "image":
+        image_id = len(objects) + 1
+        objects.append(image_xobject())
 
     for page_index in range(page_count):
         content_id = len(objects) + 2
         page_id = len(objects) + 1
         page_ids.append(page_id)
+        resources = f"<< /Font << /F1 {font_id} 0 R >>"
+        if image_id is not None:
+            resources += f" /XObject << /Im1 {image_id} 0 R >>"
+        resources += " >>"
         page = (
             f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 612 792] "
-            f"/Resources << /Font << /F1 {font_id} 0 R >> >> "
+            f"/Resources {resources} "
             f"/Contents {content_id} 0 R >>"
         ).encode("ascii")
         stream = content_for(kind, page_index)
@@ -196,13 +250,85 @@ def write_pdf(path, page_count, kind):
             ).encode("ascii")
         )
 
-for case in sorted(requested):
+for case in sorted(python_requested):
     filename, page_count, kind = CASE_SPECS[case]
     path = os.path.join(out_dir, filename)
     write_pdf(path, page_count, kind)
     size_mb = os.path.getsize(path) / 1024 / 1024
     print(f"{case}: {path} ({page_count} pages, {size_mb:.2f} MB)")
 PY
+
+  if [[ "$CASES" == *chinese* ]]; then
+    /usr/bin/swift - "$PDF_DIR" "$CASES" <<'SWIFT'
+import AppKit
+import CoreGraphics
+import Foundation
+
+let outputDirectory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+let requested = Set(CommandLine.arguments[2].split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+let specs: [String: (String, Int)] = [
+    "chinese100": ("readarc-chinese-dense-100.pdf", 100),
+    "chinese500": ("readarc-chinese-dense-500.pdf", 500),
+    "chinese1000": ("readarc-chinese-dense-1000.pdf", 1000)
+]
+
+let paragraph = """
+ReadArc 中文文本密集压测：这一页包含连续中文段落、数字、英文术语、标点符号和长句，用于验证 PDFKit 渲染、文本提取、搜索、缩略图生成、分页缓存和 Agent 上下文摘要的稳定性。章节：客户需求、验收标准、权限配置、报价流程、项目交付、风险说明、会议纪要、版本记录。
+"""
+
+let titleAttributes: [NSAttributedString.Key: Any] = [
+    .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
+    .foregroundColor: NSColor.black
+]
+let bodyAttributes: [NSAttributedString.Key: Any] = [
+    .font: NSFont.systemFont(ofSize: 8),
+    .foregroundColor: NSColor.black
+]
+
+func draw(_ text: String, in rect: CGRect, attributes: [NSAttributedString.Key: Any]) {
+    (text as NSString).draw(in: rect, withAttributes: attributes)
+}
+
+func writeChinesePDF(path: URL, pageCount: Int) throws {
+    var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+    guard let context = CGContext(path as CFURL, mediaBox: &mediaBox, nil) else {
+        throw NSError(domain: "ReadArcStress", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to create PDF context"])
+    }
+
+    for pageIndex in 0..<pageCount {
+        autoreleasepool {
+            context.beginPDFPage(nil)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+
+            NSColor.white.setFill()
+            CGRect(x: 0, y: 0, width: 612, height: 792).fill()
+
+            draw("ReadArc 中文文本密集 PDF - 第 \(pageIndex + 1) / \(pageCount) 页", in: CGRect(x: 42, y: 748, width: 528, height: 24), attributes: titleAttributes)
+
+            var y = 708.0
+            for line in 0..<52 {
+                let text = "\(String(format: "%03d", line + 1))  \(paragraph) 当前页：\(pageIndex + 1)，段落：\(line + 1)。"
+                draw(text, in: CGRect(x: 42, y: y, width: 528, height: 13), attributes: bodyAttributes)
+                y -= 13
+            }
+
+            NSGraphicsContext.restoreGraphicsState()
+            context.endPDFPage()
+        }
+    }
+
+    context.closePDF()
+}
+
+for (caseName, spec) in specs where requested.contains(caseName) {
+    let path = outputDirectory.appendingPathComponent(spec.0)
+    try writeChinesePDF(path: path, pageCount: spec.1)
+    let size = ((try? FileManager.default.attributesOfItem(atPath: path.path)[.size] as? NSNumber)?.doubleValue ?? 0) / 1024 / 1024
+    print("\(caseName): \(path.path) (\(spec.1) pages, \(String(format: "%.2f", size)) MB)")
+}
+SWIFT
+  fi
 }
 
 build_app() {
@@ -282,9 +408,16 @@ sample_case() {
 
 pdf_path_for_case() {
   case "$1" in
+    text100) echo "$PDF_DIR/readarc-text-100.pdf" ;;
     text500) echo "$PDF_DIR/readarc-text-500.pdf" ;;
     text1000) echo "$PDF_DIR/readarc-text-1000.pdf" ;;
+    chinese100) echo "$PDF_DIR/readarc-chinese-dense-100.pdf" ;;
+    chinese500) echo "$PDF_DIR/readarc-chinese-dense-500.pdf" ;;
+    chinese1000) echo "$PDF_DIR/readarc-chinese-dense-1000.pdf" ;;
+    scan100) echo "$PDF_DIR/readarc-scan-like-100.pdf" ;;
     scan200) echo "$PDF_DIR/readarc-scan-like-200.pdf" ;;
+    scan500) echo "$PDF_DIR/readarc-scan-like-500.pdf" ;;
+    image100) echo "$PDF_DIR/readarc-image-100.pdf" ;;
     mixed300) echo "$PDF_DIR/readarc-mixed-300.pdf" ;;
     *) return 1 ;;
   esac
@@ -330,14 +463,16 @@ for case_name in "${CASE_ARRAY[@]}"; do
   sample_case "$case_name" "$pdf_path" "$REPORT_PATH"
 done
 
-for pdf_path in "${EXTERNAL_PDFS[@]}"; do
-  if [[ ! -f "$pdf_path" ]]; then
-    echo "| external | $pdf_path | missing PDF | - | - | - |" >>"$REPORT_PATH"
-    continue
-  fi
-  echo "Sampling external PDF: $pdf_path..."
-  sample_case "external" "$pdf_path" "$REPORT_PATH"
-done
+if [[ "${#EXTERNAL_PDFS[@]}" -gt 0 ]]; then
+  for pdf_path in "${EXTERNAL_PDFS[@]}"; do
+    if [[ ! -f "$pdf_path" ]]; then
+      echo "| external | $pdf_path | missing PDF | - | - | - |" >>"$REPORT_PATH"
+      continue
+    fi
+    echo "Sampling external PDF: $pdf_path..."
+    sample_case "external" "$pdf_path" "$REPORT_PATH"
+  done
+fi
 
 /usr/bin/pkill -x "$PRODUCT_NAME" >/dev/null 2>&1 || true
 
@@ -345,7 +480,8 @@ done
   echo
   echo "Notes:"
   echo "- RSS is sampled with ps once per second, so very short spikes can be missed."
-  echo "- scan200 is scan-like vector content without embedded OCR text; use a real scanned PDF for final PDFKit raster memory validation."
+  echo "- scan cases are scan-like vector content without embedded OCR text; use a real scanned PDF for final PDFKit raster memory validation."
+  echo "- image100 uses a repeated embedded image XObject to exercise image-heavy rendering."
 } >>"$REPORT_PATH"
 
 echo "Report: $REPORT_PATH"

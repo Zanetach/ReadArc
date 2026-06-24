@@ -31,7 +31,7 @@ struct ReaderToolbar: View {
 
     @ViewBuilder
     private func toolbarContent(width: CGFloat) -> some View {
-        if width < 980 {
+        if width < 760 {
             compactToolbarContent(width: width)
         } else {
             regularToolbarContent(width: width)
