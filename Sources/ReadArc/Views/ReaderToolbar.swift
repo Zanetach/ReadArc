@@ -31,7 +31,11 @@ struct ReaderToolbar: View {
 
     @ViewBuilder
     private func toolbarContent(width: CGFloat) -> some View {
-        regularToolbarContent(width: width)
+        if model.hasDocument {
+            regularToolbarContent(width: width)
+        } else {
+            emptyToolbarContent(width: width)
+        }
     }
 
     private func regularToolbarContent(width: CGFloat) -> some View {
@@ -42,15 +46,35 @@ struct ReaderToolbar: View {
             leftGroup(compact: width < 620)
                 .layoutPriority(2)
 
-            if width >= 700 {
-                Spacer(minLength: 6)
-                centerGroup
+            if width >= 680 {
+                ToolbarGroupGap(width: width < 900 ? 12 : 20)
+                centerGroup(width: width)
+                    .layoutPriority(1)
             }
 
-            Spacer(minLength: 6)
+            Spacer(minLength: 16)
 
             rightGroup(width: width)
                 .layoutPriority(3)
+        }
+        .padding(.horizontal, width < 680 ? 8 : 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func emptyToolbarContent(width: CGFloat) -> some View {
+        HStack(spacing: 12) {
+            Color.clear
+                .frame(width: 68)
+
+            Spacer(minLength: 0)
+
+            ToolbarIconButton(
+                title: model.isInspectorVisible ? "Hide Panel" : "Show Panel",
+                systemImage: "sidebar.trailing",
+                isDisabled: false
+            ) {
+                model.toggleInspectorPanel()
+            }
         }
         .padding(.horizontal, width < 680 ? 8 : 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -71,10 +95,13 @@ struct ReaderToolbar: View {
         .frame(minWidth: compact ? 104 : 136, alignment: .leading)
     }
 
-    private var centerGroup: some View {
+    @ViewBuilder
+    private func centerGroup(width: CGFloat) -> some View {
         HStack(spacing: 8) {
-            ToolbarIconButton(title: "Zoom Out", systemImage: "minus.magnifyingglass", isDisabled: !model.hasDocument) {
-                model.send(.zoomOut)
+            if width >= 900 {
+                ToolbarIconButton(title: "Zoom Out", systemImage: "minus.magnifyingglass", isDisabled: !model.hasDocument) {
+                    model.send(.zoomOut)
+                }
             }
 
             ToolbarMetricText(model.scaleLabel, minWidth: 54)
@@ -83,27 +110,31 @@ struct ReaderToolbar: View {
                 model.send(.zoomIn)
             }
 
-            ToolbarIconButton(title: "Fit Page", systemImage: "arrow.up.left.and.arrow.down.right", isDisabled: !model.hasDocument) {
-                model.send(.fitToView)
+            if width >= 1050 {
+                ToolbarIconButton(title: "Fit Page", systemImage: "arrow.up.left.and.arrow.down.right", isDisabled: !model.hasDocument) {
+                    model.send(.fitToView)
+                }
             }
         }
     }
 
     private func rightGroup(width: CGFloat) -> some View {
         HStack(spacing: 8) {
-            ToolbarSearchField(
-                text: $model.searchText,
-                width: searchFieldWidth(for: width),
-                isDisabled: !model.hasDocument
-            ) {
-                model.selectNextSearchResult()
+            if width >= 760 {
+                ToolbarSearchField(
+                    text: $model.searchText,
+                    width: searchFieldWidth(for: width),
+                    isDisabled: !model.hasDocument
+                ) {
+                    model.selectNextSearchResult()
+                }
             }
 
-            if width >= 560 {
+            if width >= 700 {
                 ToolbarMetricText(model.searchLabel, minWidth: 42)
             }
 
-            if width >= 650 {
+            if width >= 860 {
                 ToolbarIconButton(title: "Previous Match", systemImage: "chevron.up", isDisabled: model.searchResults.isEmpty) {
                     model.selectPreviousSearchResult()
                 }
@@ -126,13 +157,13 @@ struct ReaderToolbar: View {
     }
 
     private func searchFieldWidth(for width: CGFloat) -> CGFloat {
-        if width < 620 {
-            return 92
+        if width < 900 {
+            return 120
         }
-        if width < 820 {
-            return 126
+        if width < 1100 {
+            return 150
         }
-        return 166
+        return 220
     }
 
     private var appearanceMode: Binding<AppAppearanceMode> {
@@ -195,6 +226,17 @@ private struct ToolbarMetricText: View {
             .padding(.horizontal, 10)
             .frame(height: 38)
             .background(NativeProTheme.tile.opacity(0.74), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+    }
+}
+
+private struct ToolbarGroupGap: View {
+    let width: CGFloat
+
+    var body: some View {
+        Rectangle()
+            .fill(NativeProTheme.separator.opacity(0.58))
+            .frame(width: 1, height: 28)
+            .padding(.horizontal, max(0, (width - 1) / 2))
     }
 }
 

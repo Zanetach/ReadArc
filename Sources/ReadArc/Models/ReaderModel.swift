@@ -115,6 +115,7 @@ final class ReaderModel: NSObject, ObservableObject {
             name: .readArcOpenFileRequested,
             object: nil
         )
+        openPendingExternalFiles()
     }
 
     deinit {
@@ -212,6 +213,10 @@ final class ReaderModel: NSObject, ObservableObject {
 
     func openRecent(_ recent: RecentDocument) {
         load(url: recent.url, bookmarkData: recent.bookmarkData)
+    }
+
+    func openExternalFile(_ url: URL) {
+        load(url: url, bookmarkData: Self.makeSecurityScopedBookmark(for: url))
     }
 
     func removeRecent(_ recent: RecentDocument) {
@@ -767,7 +772,16 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     @objc private func handleOpenFileRequest(_ notification: Notification) {
-        guard let url = notification.object as? URL else { return }
-        load(url: url, bookmarkData: Self.makeSecurityScopedBookmark(for: url))
+        if let url = notification.object as? URL {
+            openExternalFile(url)
+            return
+        }
+
+        openPendingExternalFiles()
+    }
+
+    private func openPendingExternalFiles() {
+        guard let url = ExternalOpenRequestCenter.shared.drainPendingURLs().last else { return }
+        openExternalFile(url)
     }
 }

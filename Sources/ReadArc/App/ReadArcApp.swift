@@ -41,6 +41,9 @@ struct ReadArcApp: App {
                     refreshSystemColorScheme()
                     AppAppearanceController.apply(appearanceMode)
                 }
+                .onOpenURL { url in
+                    model.openExternalFile(url)
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
@@ -98,11 +101,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
-        NotificationCenter.default.post(
-            name: .readArcOpenFileRequested,
-            object: URL(fileURLWithPath: filename)
-        )
+        ExternalOpenRequestCenter.shared.enqueue([URL(fileURLWithPath: filename)])
         return true
+    }
+
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        ExternalOpenRequestCenter.shared.enqueue(filenames.map(URL.init(fileURLWithPath:)))
+        sender.reply(toOpenOrPrint: .success)
     }
 }
 
