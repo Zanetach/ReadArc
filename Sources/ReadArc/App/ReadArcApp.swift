@@ -32,6 +32,7 @@ struct ReadArcApp: App {
                     refreshSystemColorScheme()
                     AppAppearanceController.apply(appearanceMode)
                     AppAppearanceController.requestSystemAppearanceRefresh()
+                    LaunchSetupCoordinator.runIfNeeded()
                 }
                 .onChange(of: appearanceModeRaw) { _, _ in
                     refreshSystemColorScheme()
