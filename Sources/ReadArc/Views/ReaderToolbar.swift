@@ -31,11 +31,7 @@ struct ReaderToolbar: View {
 
     @ViewBuilder
     private func toolbarContent(width: CGFloat) -> some View {
-        if width < 760 {
-            compactToolbarContent(width: width)
-        } else {
-            regularToolbarContent(width: width)
-        }
+        regularToolbarContent(width: width)
     }
 
     private func regularToolbarContent(width: CGFloat) -> some View {
@@ -57,59 +53,6 @@ struct ReaderToolbar: View {
                 .layoutPriority(3)
         }
         .padding(.horizontal, width < 680 ? 8 : 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func compactToolbarContent(width: CGFloat) -> some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 6) {
-                Color.clear
-                    .frame(width: 64)
-
-                leftGroup(compact: true)
-
-                if width >= 760 {
-                    centerGroup
-                } else {
-                    compactZoomGroup
-                }
-
-                Spacer(minLength: 6)
-
-                ToolbarIconButton(
-                    title: model.isInspectorVisible ? "Hide Panel" : "Show Panel",
-                    systemImage: "sidebar.trailing",
-                    isDisabled: false
-                ) {
-                    model.toggleInspectorPanel()
-                }
-
-            }
-
-            HStack(spacing: 6) {
-                ToolbarSearchField(
-                    text: $model.searchText,
-                    width: max(140, min(260, width - 270)),
-                    isDisabled: !model.hasDocument
-                ) {
-                    model.selectNextSearchResult()
-                }
-
-                ToolbarMetricText(model.searchLabel, minWidth: 42)
-
-                ToolbarIconButton(title: "Previous Match", systemImage: "chevron.up", isDisabled: model.searchResults.isEmpty) {
-                    model.selectPreviousSearchResult()
-                }
-
-                ToolbarIconButton(title: "Next Match", systemImage: "chevron.down", isDisabled: model.searchResults.isEmpty) {
-                    model.selectNextSearchResult()
-                }
-
-                Spacer(minLength: 0)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -135,24 +78,6 @@ struct ReaderToolbar: View {
             }
 
             ToolbarMetricText(model.scaleLabel, minWidth: 54)
-
-            ToolbarIconButton(title: "Zoom In", systemImage: "plus.magnifyingglass", isDisabled: !model.hasDocument) {
-                model.send(.zoomIn)
-            }
-
-            ToolbarIconButton(title: "Fit Page", systemImage: "arrow.up.left.and.arrow.down.right", isDisabled: !model.hasDocument) {
-                model.send(.fitToView)
-            }
-        }
-    }
-
-    private var compactZoomGroup: some View {
-        HStack(spacing: 5) {
-            ToolbarIconButton(title: "Zoom Out", systemImage: "minus.magnifyingglass", isDisabled: !model.hasDocument) {
-                model.send(.zoomOut)
-            }
-
-            ToolbarMetricText(model.scaleLabel, minWidth: 44)
 
             ToolbarIconButton(title: "Zoom In", systemImage: "plus.magnifyingglass", isDisabled: !model.hasDocument) {
                 model.send(.zoomIn)

@@ -30,7 +30,7 @@ struct PDFKitRepresentedView: NSViewRepresentable {
         if pdfView.document !== model.document {
             pdfView.document = model.document
             pdfView.autoScales = true
-            context.coordinator.sync(from: pdfView)
+            context.coordinator.scheduleSync(from: pdfView)
         }
 
         if let command = model.pendingCommand {
@@ -73,7 +73,7 @@ struct PDFKitRepresentedView: NSViewRepresentable {
                 object: pdfView
             )
 
-            sync(from: pdfView)
+            scheduleSync(from: pdfView)
         }
 
         func perform(_ command: PDFViewCommand, in pdfView: PDFView) {
@@ -110,7 +110,7 @@ struct PDFKitRepresentedView: NSViewRepresentable {
                 pdfView.autoScales = true
             }
 
-            sync(from: pdfView)
+            scheduleSync(from: pdfView)
         }
 
         private func goToSearchMatch(pageIndex: Int, location: Int, length: Int, in pdfView: PDFView) {
@@ -149,10 +149,10 @@ struct PDFKitRepresentedView: NSViewRepresentable {
             if let page, let pagePoint {
                 pdfView.go(to: PDFDestination(page: page, at: pagePoint))
             }
-            sync(from: pdfView)
+            scheduleSync(from: pdfView)
         }
 
-        func sync(from pdfView: PDFView) {
+        func scheduleSync(from pdfView: PDFView) {
             let pageCount = pdfView.document?.pageCount ?? 0
             let currentPageIndex: Int
 
@@ -162,17 +162,51 @@ struct PDFKitRepresentedView: NSViewRepresentable {
                 currentPageIndex = 0
             }
 
-            model.syncFromPDFView(
+            let snapshot = PDFViewSyncSnapshot(
                 pageIndex: currentPageIndex,
                 pageCount: pageCount,
                 scaleFactor: pdfView.scaleFactor
             )
+
+            pendingSyncSnapshot = snapshot
+            guard !isSyncScheduled else { return }
+
+            isSyncScheduled = true
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let snapshot = self.pendingSyncSnapshot else { return }
+                self.pendingSyncSnapshot = nil
+                self.isSyncScheduled = false
+
+                guard snapshot != self.lastAppliedSyncSnapshot else { return }
+                self.lastAppliedSyncSnapshot = snapshot
+                self.model.syncFromPDFView(
+                    pageIndex: snapshot.pageIndex,
+                    pageCount: snapshot.pageCount,
+                    scaleFactor: snapshot.scaleFactor
+                )
+            }
         }
 
         @objc private func handlePDFViewChange(_ notification: Notification) {
             guard let pdfView = notification.object as? PDFView else { return }
-            sync(from: pdfView)
+            scheduleSync(from: pdfView)
         }
+
+        private var isSyncScheduled = false
+        private var pendingSyncSnapshot: PDFViewSyncSnapshot?
+        private var lastAppliedSyncSnapshot: PDFViewSyncSnapshot?
+    }
+}
+
+private struct PDFViewSyncSnapshot: Equatable {
+    let pageIndex: Int
+    let pageCount: Int
+    let scaleFactor: CGFloat
+
+    static func == (lhs: PDFViewSyncSnapshot, rhs: PDFViewSyncSnapshot) -> Bool {
+        lhs.pageIndex == rhs.pageIndex
+            && lhs.pageCount == rhs.pageCount
+            && abs(lhs.scaleFactor - rhs.scaleFactor) <= 0.005
     }
 }
 
