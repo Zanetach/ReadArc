@@ -71,7 +71,12 @@ struct DocumentInspectorView: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(NativeProTheme.accent)
                 .frame(width: 26, height: 26)
-                .background(NativeProTheme.selection.opacity(0.82), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous),
+                    fallbackColor: NativeProTheme.selection.opacity(0.82),
+                    strokeColor: NativeProTheme.accent.opacity(0.18),
+                    tint: NativeProTheme.accent.opacity(0.12)
+                )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(sectionTitle)
@@ -89,7 +94,11 @@ struct DocumentInspectorView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
-        .background(NativeProTheme.tile.opacity(0.48), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+            fallbackColor: NativeProTheme.tile.opacity(0.48),
+            strokeColor: NativeProTheme.separator.opacity(0.55)
+        )
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
     }
@@ -244,11 +253,13 @@ private struct SearchMatchesPanel: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(9)
-                            .background(matchBackground(for: match), in: RoundedRectangle(cornerRadius: 7))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 7)
-                                    .strokeBorder(match.index == model.selectedSearchIndex ? NativeProTheme.searchBorder.opacity(0.35) : .clear)
-                            }
+                            .readArcGlass(
+                                in: RoundedRectangle(cornerRadius: 7),
+                                fallbackColor: matchBackground(for: match),
+                                strokeColor: match.index == model.selectedSearchIndex ? NativeProTheme.searchBorder.opacity(0.35) : .clear,
+                                isInteractive: true,
+                                tint: match.index == model.selectedSearchIndex ? NativeProTheme.searchBorder.opacity(0.10) : nil
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -376,11 +387,11 @@ private struct InspectorPanel<Content: View>: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(NativeProTheme.panel.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(NativeProTheme.separator)
-        }
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.82),
+            strokeColor: NativeProTheme.separator
+        )
     }
 }
 
@@ -401,7 +412,11 @@ private struct MetricTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
-        .background(NativeProTheme.tile.opacity(0.74), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+            fallbackColor: NativeProTheme.tile.opacity(0.74),
+            strokeColor: NativeProTheme.separator.opacity(0.55)
+        )
     }
 }
 
@@ -418,6 +433,11 @@ private struct TagLabel: View {
             .foregroundStyle(NativeProTheme.accent)
             .padding(.horizontal, 7)
             .frame(height: 19)
-            .background(NativeProTheme.selection.opacity(0.86), in: Capsule())
+            .readArcGlass(
+                in: Capsule(),
+                fallbackColor: NativeProTheme.selection.opacity(0.86),
+                strokeColor: NativeProTheme.accent.opacity(0.20),
+                tint: NativeProTheme.accent.opacity(0.10)
+            )
     }
 }

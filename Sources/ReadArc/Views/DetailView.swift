@@ -16,8 +16,32 @@ struct DetailView: View {
                     .padding(.vertical, 12)
             }
         }
-        .background(model.readerMode == .focus ? NativeProTheme.readerCanvas.opacity(0.82) : NativeProTheme.readerCanvas)
+        .background {
+            ReaderCanvasBackground(isFocusMode: model.readerMode == .focus)
+        }
         .navigationTitle(model.documentURL?.lastPathComponent ?? "ReadArc")
+    }
+}
+
+private struct ReaderCanvasBackground: View {
+    let isFocusMode: Bool
+
+    var body: some View {
+        ZStack {
+            NativeProTheme.readerCanvas
+                .opacity(isFocusMode ? 0.82 : 1)
+
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.14),
+                    Color.clear,
+                    NativeProTheme.accent.opacity(0.035)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .allowsHitTesting(false)
+        }
     }
 }
 
@@ -44,7 +68,7 @@ private struct LoadingDocumentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(NativeProTheme.readerCanvas)
+        .background(ReaderCanvasBackground(isFocusMode: false))
     }
 }
 
@@ -53,34 +77,57 @@ private struct EmptyDocumentView: View {
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        VStack(spacing: 22) {
-            Image(systemName: "doc.richtext")
-                .font(.system(size: 74, weight: .regular))
-                .foregroundStyle(NativeProTheme.muted)
-
-            VStack(spacing: 8) {
-                Text(language.text("empty.title"))
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(NativeProTheme.ink)
-
-                Text(language.text("empty.subtitle"))
-                    .font(.system(size: 15, weight: .medium))
+        ReadArcGlassContainer(spacing: 14) {
+            VStack(spacing: 18) {
+                Image(systemName: "doc.richtext")
+                    .font(.system(size: 62, weight: .regular))
+                    .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(NativeProTheme.muted)
-            }
+                    .frame(width: 94, height: 94)
+                    .readArcGlass(
+                        in: RoundedRectangle(cornerRadius: 24, style: .continuous),
+                        fallbackColor: NativeProTheme.panel.opacity(0.34),
+                        strokeColor: NativeProTheme.separator.opacity(0.50)
+                    )
 
-            Button {
-                openDocument()
-            } label: {
-                Label(language.text("openPDF"), systemImage: "folder")
-                    .font(.system(size: 15, weight: .semibold))
-                    .padding(.horizontal, 18)
-                    .frame(height: 36)
+                VStack(spacing: 7) {
+                    Text(language.text("empty.title"))
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(NativeProTheme.ink)
+
+                    Text(language.text("empty.subtitle"))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(NativeProTheme.muted)
+                }
+
+                Button {
+                    openDocument()
+                } label: {
+                    Label(language.text("openPDF"), systemImage: "folder")
+                        .font(.system(size: 15, weight: .semibold))
+                        .padding(.horizontal, 18)
+                        .frame(height: 38)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("o")
+                .foregroundStyle(NativeProTheme.accent)
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 13, style: .continuous),
+                    fallbackColor: NativeProTheme.panel.opacity(0.36),
+                    strokeColor: NativeProTheme.accent.opacity(0.18),
+                    isInteractive: true,
+                    tint: NativeProTheme.accent.opacity(0.12)
+                )
             }
-            .buttonStyle(.plain)
-            .keyboardShortcut("o")
-            .foregroundStyle(NativeProTheme.accent)
+            .padding(.horizontal, 34)
+            .padding(.vertical, 28)
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 28, style: .continuous),
+                fallbackColor: NativeProTheme.panel.opacity(0.18),
+                strokeColor: NativeProTheme.separator.opacity(0.35)
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(NativeProTheme.readerCanvas)
+        .background(ReaderCanvasBackground(isFocusMode: false))
     }
 }

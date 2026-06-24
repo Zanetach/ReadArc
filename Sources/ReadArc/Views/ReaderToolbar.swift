@@ -3,12 +3,13 @@ import SwiftUI
 
 struct ReaderToolbar: View {
     @ObservedObject var model: ReaderModel
-    @AppStorage("appearanceMode") private var appearanceModeRaw = AppAppearanceMode.system.rawValue
-    @AppStorage("appLanguage") private var languageRaw = AppLanguage.system.rawValue
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         GeometryReader { proxy in
-            toolbarContent(width: proxy.size.width)
+            ReadArcGlassContainer(spacing: proxy.size.width < 720 ? 8 : 12) {
+                toolbarContent(width: proxy.size.width)
+            }
         }
         .frame(height: toolbarHeight)
         .background(NativeProTheme.header.opacity(0.92))
@@ -26,7 +27,7 @@ struct ReaderToolbar: View {
     }
 
     private var toolbarHeight: CGFloat {
-        return 72
+        return 64
     }
 
     @ViewBuilder
@@ -39,23 +40,24 @@ struct ReaderToolbar: View {
     }
 
     private func regularToolbarContent(width: CGFloat) -> some View {
-        HStack(spacing: width < 720 ? 8 : 12) {
-            Color.clear
-                .frame(width: 68)
+        ZStack {
+            HStack(spacing: width < 720 ? 8 : 12) {
+                Color.clear
+                    .frame(width: 66)
 
-            leftGroup(compact: width < 620)
-                .layoutPriority(2)
+                leftGroup(compact: width < 620)
+                    .layoutPriority(2)
 
-            if width >= 680 {
-                ToolbarGroupGap(width: width < 900 ? 12 : 20)
-                centerGroup(width: width)
-                    .layoutPriority(1)
+                Spacer(minLength: 16)
+
+                rightGroup(width: width)
+                    .layoutPriority(3)
             }
 
-            Spacer(minLength: 16)
-
-            rightGroup(width: width)
-                .layoutPriority(3)
+            if width >= 1220 {
+                centerGroup(width: width)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
         .padding(.horizontal, width < 680 ? 8 : 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -64,12 +66,12 @@ struct ReaderToolbar: View {
     private func emptyToolbarContent(width: CGFloat) -> some View {
         HStack(spacing: 12) {
             Color.clear
-                .frame(width: 68)
+                .frame(width: 66)
 
             Spacer(minLength: 0)
 
             ToolbarIconButton(
-                title: model.isInspectorVisible ? "Hide Panel" : "Show Panel",
+                title: model.isInspectorVisible ? language.text("toolbar.hidePanel") : language.text("toolbar.showPanel"),
                 systemImage: "sidebar.trailing",
                 isDisabled: false
             ) {
@@ -82,11 +84,11 @@ struct ReaderToolbar: View {
 
     private func leftGroup(compact: Bool) -> some View {
         HStack(spacing: 8) {
-            ToolbarIconButton(title: "Previous Page", systemImage: "chevron.left", isDisabled: !model.hasDocument) {
+            ToolbarIconButton(title: language.text("toolbar.previousPage"), systemImage: "chevron.left", isDisabled: !model.hasDocument) {
                 model.send(.previousPage)
             }
 
-            ToolbarIconButton(title: "Next Page", systemImage: "chevron.right", isDisabled: !model.hasDocument) {
+            ToolbarIconButton(title: language.text("toolbar.nextPage"), systemImage: "chevron.right", isDisabled: !model.hasDocument) {
                 model.send(.nextPage)
             }
 
@@ -99,19 +101,19 @@ struct ReaderToolbar: View {
     private func centerGroup(width: CGFloat) -> some View {
         HStack(spacing: 8) {
             if width >= 900 {
-                ToolbarIconButton(title: "Zoom Out", systemImage: "minus.magnifyingglass", isDisabled: !model.hasDocument) {
+                ToolbarIconButton(title: language.text("toolbar.zoomOut"), systemImage: "minus.magnifyingglass", isDisabled: !model.hasDocument) {
                     model.send(.zoomOut)
                 }
             }
 
             ToolbarMetricText(model.scaleLabel, minWidth: 54)
 
-            ToolbarIconButton(title: "Zoom In", systemImage: "plus.magnifyingglass", isDisabled: !model.hasDocument) {
+            ToolbarIconButton(title: language.text("toolbar.zoomIn"), systemImage: "plus.magnifyingglass", isDisabled: !model.hasDocument) {
                 model.send(.zoomIn)
             }
 
             if width >= 1050 {
-                ToolbarIconButton(title: "Fit Page", systemImage: "arrow.up.left.and.arrow.down.right", isDisabled: !model.hasDocument) {
+                ToolbarIconButton(title: language.text("toolbar.fitPage"), systemImage: "arrow.up.left.and.arrow.down.right", isDisabled: !model.hasDocument) {
                     model.send(.fitToView)
                 }
             }
@@ -120,32 +122,41 @@ struct ReaderToolbar: View {
 
     private func rightGroup(width: CGFloat) -> some View {
         HStack(spacing: 8) {
-            if width >= 760 {
+            if width >= 860 {
                 ToolbarSearchField(
                     text: $model.searchText,
+                    placeholder: language.text("toolbar.search"),
                     width: searchFieldWidth(for: width),
                     isDisabled: !model.hasDocument
                 ) {
                     model.selectNextSearchResult()
                 }
+            } else if model.hasDocument {
+                ToolbarIconButton(title: language.text("toolbar.search"), systemImage: "magnifyingglass", isDisabled: false) {
+                    model.showResearch(tab: .search)
+                }
             }
 
-            if width >= 700 {
+            if width >= 760 {
                 ToolbarMetricText(model.searchLabel, minWidth: 42)
             }
 
-            if width >= 860 {
-                ToolbarIconButton(title: "Previous Match", systemImage: "chevron.up", isDisabled: model.searchResults.isEmpty) {
+            if width >= 980 {
+                ToolbarIconButton(title: language.text("toolbar.previousMatch"), systemImage: "chevron.up", isDisabled: model.searchResults.isEmpty) {
                     model.selectPreviousSearchResult()
                 }
 
-                ToolbarIconButton(title: "Next Match", systemImage: "chevron.down", isDisabled: model.searchResults.isEmpty) {
+                ToolbarIconButton(title: language.text("toolbar.nextMatch"), systemImage: "chevron.down", isDisabled: model.searchResults.isEmpty) {
                     model.selectNextSearchResult()
                 }
             }
 
+            if width < 1220 {
+                ToolbarOverflowMenu(model: model, showsSearchNavigation: width < 980)
+            }
+
             ToolbarIconButton(
-                title: model.isInspectorVisible ? "Hide Panel" : "Show Panel",
+                title: model.isInspectorVisible ? language.text("toolbar.hidePanel") : language.text("toolbar.showPanel"),
                 systemImage: "sidebar.trailing",
                 isDisabled: false
             ) {
@@ -157,27 +168,13 @@ struct ReaderToolbar: View {
     }
 
     private func searchFieldWidth(for width: CGFloat) -> CGFloat {
-        if width < 900 {
+        if width < 980 {
             return 120
         }
-        if width < 1100 {
+        if width < 1180 {
             return 150
         }
         return 220
-    }
-
-    private var appearanceMode: Binding<AppAppearanceMode> {
-        Binding(
-            get: { AppAppearanceMode(rawValue: appearanceModeRaw) ?? .system },
-            set: { appearanceModeRaw = $0.rawValue }
-        )
-    }
-
-    private var appLanguage: Binding<AppLanguage> {
-        Binding(
-            get: { AppLanguage(rawValue: languageRaw) ?? .system },
-            set: { languageRaw = $0.rawValue }
-        )
     }
 }
 
@@ -192,12 +189,13 @@ private struct ToolbarIconButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: 42, height: 42)
-                .background(NativeProTheme.panel.opacity(0.86), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(NativeProTheme.separator.opacity(1.25), lineWidth: 1)
-                }
+                .frame(width: 38, height: 38)
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                    fallbackColor: NativeProTheme.panel.opacity(0.86),
+                    strokeColor: NativeProTheme.separator.opacity(1.25),
+                    isInteractive: true
+                )
         }
         .buttonStyle(.borderless)
         .controlSize(.small)
@@ -224,24 +222,18 @@ private struct ToolbarMetricText: View {
             .foregroundStyle(NativeProTheme.muted)
             .frame(minWidth: minWidth)
             .padding(.horizontal, 10)
-            .frame(height: 38)
-            .background(NativeProTheme.tile.opacity(0.74), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-    }
-}
-
-private struct ToolbarGroupGap: View {
-    let width: CGFloat
-
-    var body: some View {
-        Rectangle()
-            .fill(NativeProTheme.separator.opacity(0.58))
-            .frame(width: 1, height: 28)
-            .padding(.horizontal, max(0, (width - 1) / 2))
+            .frame(height: 36)
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 11, style: .continuous),
+                fallbackColor: NativeProTheme.tile.opacity(0.74),
+                strokeColor: NativeProTheme.separator.opacity(0.65)
+            )
     }
 }
 
 private struct ToolbarSearchField: View {
     @Binding var text: String
+    let placeholder: String
     let width: CGFloat
     let isDisabled: Bool
     let submit: () -> Void
@@ -252,7 +244,7 @@ private struct ToolbarSearchField: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(NativeProTheme.muted)
 
-            TextField("Search", text: $text)
+            TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .frame(width: width)
@@ -260,124 +252,68 @@ private struct ToolbarSearchField: View {
                 .onSubmit(submit)
         }
         .padding(.horizontal, 9)
-        .frame(height: 42)
-        .background(NativeProTheme.panel.opacity(0.82), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .stroke(NativeProTheme.separator.opacity(1.2), lineWidth: 1)
-        }
+        .frame(height: 38)
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 11, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.82),
+            strokeColor: NativeProTheme.separator.opacity(1.2),
+            isInteractive: true
+        )
         .opacity(isDisabled ? 0.48 : 1)
     }
 }
 
-private struct ToolbarPreferenceSwitches: View {
-    @Binding var appearanceMode: AppAppearanceMode
-    @Binding var appLanguage: AppLanguage
-    let compact: Bool
+private struct ToolbarOverflowMenu: View {
+    @ObservedObject var model: ReaderModel
+    let showsSearchNavigation: Bool
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        HStack(spacing: 6) {
-            HStack(spacing: 2) {
-                ToolbarSegmentButton(
-                    title: language.text("appearance.system"),
-                    systemImage: "circle.lefthalf.filled",
-                    text: nil,
-                    isActive: appearanceMode == .system
-                ) {
-                    setAppearanceMode(.system)
-                }
-
-                ToolbarSegmentButton(
-                    title: language.text("appearance.light"),
-                    systemImage: "sun.max",
-                    text: nil,
-                    isActive: appearanceMode == .light
-                ) {
-                    setAppearanceMode(.light)
-                }
-
-                ToolbarSegmentButton(
-                    title: language.text("appearance.dark"),
-                    systemImage: "moon",
-                    text: nil,
-                    isActive: appearanceMode == .dark
-                ) {
-                    setAppearanceMode(.dark)
-                }
+        Menu {
+            Button(language.text("toolbar.zoomOut")) {
+                model.send(.zoomOut)
             }
-            .padding(2)
-            .frame(height: 40)
-            .background(NativeProTheme.tile.opacity(0.68), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(NativeProTheme.separator, lineWidth: 1)
-            }
-            .help(language.text("appearance"))
+            .disabled(!model.hasDocument)
 
-            HStack(spacing: 2) {
-                ToolbarSegmentButton(
-                    title: language.text("language.chinese"),
-                    systemImage: nil,
-                    text: "中",
-                    isActive: appLanguage.resolved == .simplifiedChinese
-                ) {
-                    appLanguage = .simplifiedChinese
-                }
+            Button(language.text("toolbar.zoomIn")) {
+                model.send(.zoomIn)
+            }
+            .disabled(!model.hasDocument)
 
-                ToolbarSegmentButton(
-                    title: language.text("language.english"),
-                    systemImage: nil,
-                    text: "EN",
-                    isActive: appLanguage.resolved == .english
-                ) {
-                    appLanguage = .english
+            Button(language.text("toolbar.fitPage")) {
+                model.send(.fitToView)
+            }
+            .disabled(!model.hasDocument)
+
+            if showsSearchNavigation {
+                Divider()
+
+                Button(language.text("toolbar.previousMatch")) {
+                    model.selectPreviousSearchResult()
                 }
+                .disabled(model.searchResults.isEmpty)
+
+                Button(language.text("toolbar.nextMatch")) {
+                    model.selectNextSearchResult()
+                }
+                .disabled(model.searchResults.isEmpty)
             }
-            .padding(2)
-            .frame(height: 40)
-            .background(NativeProTheme.tile.opacity(0.68), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(NativeProTheme.separator, lineWidth: 1)
-            }
-            .help(language.text("language"))
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 38, height: 38)
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                    fallbackColor: NativeProTheme.panel.opacity(0.86),
+                    strokeColor: NativeProTheme.separator.opacity(1.25),
+                    isInteractive: true
+                )
+                .foregroundStyle(NativeProTheme.ink)
         }
-    }
-
-    private func setAppearanceMode(_ mode: AppAppearanceMode) {
-        appearanceMode = mode
-        AppAppearanceController.apply(mode)
-        if mode == .system {
-            AppAppearanceController.requestSystemAppearanceRefresh()
-        }
-    }
-}
-
-private struct ToolbarSegmentButton: View {
-    let title: String
-    let systemImage: String?
-    let text: String?
-    let isActive: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Group {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 11, weight: .semibold))
-                } else if let text {
-                    Text(text)
-                        .font(.system(size: 10, weight: .bold))
-                }
-            }
-            .frame(width: text == nil ? 28 : 32, height: 28)
-            .foregroundStyle(isActive ? NativeProTheme.primaryButtonText : NativeProTheme.muted)
-            .background(isActive ? NativeProTheme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .help(title)
-        .accessibilityLabel(title)
+        .menuStyle(.borderlessButton)
+        .frame(width: 38, height: 38)
+        .help(language.text("toolbar.more"))
+        .accessibilityLabel(language.text("toolbar.more"))
     }
 }

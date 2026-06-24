@@ -1,18 +1,27 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var model: ReaderModel
     @State private var isDropTargeted = false
+    @State private var leftSidebarDragStartWidth: CGFloat?
     @State private var rightPanelDragStartWidth: CGFloat?
+    @SceneStorage("readArcLeftSidebarWidth") private var preferredLeftSidebarWidth: Double = 0
     @SceneStorage("readArcRightPanelWidth") private var preferredRightPanelWidth: Double = 0
     @Environment(\.appLanguage) private var language
 
     var body: some View {
         GeometryReader { proxy in
             let layout = ResponsiveReaderLayout(width: proxy.size.width)
+            let leftSidebarVisible = (layout.showsSidebar && model.isSidebarVisible) || model.isLibraryOverlayVisible
+            let leftSidebarWidth = layout.leftSidebarWidth(
+                preferredWidth: preferredLeftSidebarWidth,
+                sidebarVisible: leftSidebarVisible
+            )
             let rightPanelWidth = layout.rightPanelWidth(
                 preferredWidth: preferredRightPanelWidth,
-                sidebarVisible: model.isSidebarVisible,
+                leftSidebarWidth: leftSidebarWidth,
+                sidebarVisible: leftSidebarVisible,
                 libraryOverlayVisible: model.isLibraryOverlayVisible
             )
 
@@ -23,10 +32,24 @@ struct ContentView: View {
                     CommandRailView(model: model, usesSidebarCollapse: layout.showsSidebar)
                         .frame(width: layout.railWidth)
 
-                    if (layout.showsSidebar && model.isSidebarVisible) || model.isLibraryOverlayVisible {
+                    if leftSidebarVisible {
                         leftSidebar
-                        .frame(width: layout.sidebarWidth)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
+                            .frame(width: leftSidebarWidth)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+
+                        SidebarResizeHandle(
+                            isActive: leftSidebarDragStartWidth != nil,
+                            onChanged: { translation in
+                                resizeLeftSidebar(
+                                    translation: translation,
+                                    currentWidth: leftSidebarWidth,
+                                    layout: layout
+                                )
+                            },
+                            onEnded: {
+                                leftSidebarDragStartWidth = nil
+                            }
+                        )
                     }
 
                     DetailView(model: model)
@@ -118,12 +141,15 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(NativeProTheme.inspector.opacity(0.98))
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(width: 1)
-        }
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous),
+            fallbackColor: NativeProTheme.inspector.opacity(0.96),
+            strokeColor: NativeProTheme.separator.opacity(0.55)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .padding(.trailing, 10)
     }
 
     private func openDroppedPDF(from urls: [URL]) -> Bool {
@@ -160,10 +186,33 @@ struct ContentView: View {
         let proposedWidth = startWidth - translation
         let clampedWidth = layout.clampedRightPanelWidth(
             proposedWidth,
-            sidebarVisible: model.isSidebarVisible,
+            leftSidebarWidth: layout.leftSidebarWidth(
+                preferredWidth: preferredLeftSidebarWidth,
+                sidebarVisible: (layout.showsSidebar && model.isSidebarVisible) || model.isLibraryOverlayVisible
+            ),
+            sidebarVisible: (layout.showsSidebar && model.isSidebarVisible) || model.isLibraryOverlayVisible,
             libraryOverlayVisible: model.isLibraryOverlayVisible
         )
         preferredRightPanelWidth = Double(clampedWidth)
+    }
+
+    private func resizeLeftSidebar(
+        translation: CGFloat,
+        currentWidth: CGFloat,
+        layout: ResponsiveReaderLayout
+    ) {
+        if leftSidebarDragStartWidth == nil {
+            leftSidebarDragStartWidth = currentWidth
+        }
+
+        let startWidth = leftSidebarDragStartWidth ?? currentWidth
+        let proposedWidth = startWidth + translation
+        let clampedWidth = layout.clampedLeftSidebarWidth(
+            proposedWidth,
+            rightPanelVisible: model.isInspectorVisible,
+            preferredRightPanelWidth: preferredRightPanelWidth
+        )
+        preferredLeftSidebarWidth = Double(clampedWidth)
     }
 }
 
@@ -171,15 +220,36 @@ private struct ResponsiveReaderLayout {
     let width: CGFloat
 
     var railWidth: CGFloat {
-        width < 980 ? 58 : 82
+        width < 980 ? 62 : 76
     }
 
     var showsSidebar: Bool {
         width >= 940
     }
 
-    var sidebarWidth: CGFloat {
+    var defaultSidebarWidth: CGFloat {
         width < 980 ? 168 : (width < 1160 ? 176 : 202)
+    }
+
+    var minSidebarWidth: CGFloat {
+        width < 980 ? 168 : 188
+    }
+
+    func leftSidebarWidth(
+        preferredWidth: Double,
+        sidebarVisible: Bool
+    ) -> CGFloat {
+        guard sidebarVisible else { return 0 }
+        let preferred = preferredWidth > 0 ? CGFloat(preferredWidth) : defaultSidebarWidth
+        return clampedLeftSidebarWidth(preferred)
+    }
+
+    func clampedLeftSidebarWidth(
+        _ proposedWidth: CGFloat,
+        rightPanelVisible: Bool = false,
+        preferredRightPanelWidth: Double = 0
+    ) -> CGFloat {
+        min(max(proposedWidth, minSidebarWidth), maxLeftSidebarWidth(rightPanelVisible: rightPanelVisible, preferredRightPanelWidth: preferredRightPanelWidth))
     }
 
     var defaultRightPanelWidth: CGFloat {
@@ -198,12 +268,14 @@ private struct ResponsiveReaderLayout {
 
     func rightPanelWidth(
         preferredWidth: Double,
+        leftSidebarWidth: CGFloat,
         sidebarVisible: Bool,
         libraryOverlayVisible: Bool
     ) -> CGFloat {
         let preferred = preferredWidth > 0 ? CGFloat(preferredWidth) : defaultRightPanelWidth
         return clampedRightPanelWidth(
             preferred,
+            leftSidebarWidth: leftSidebarWidth,
             sidebarVisible: sidebarVisible,
             libraryOverlayVisible: libraryOverlayVisible
         )
@@ -211,18 +283,61 @@ private struct ResponsiveReaderLayout {
 
     func clampedRightPanelWidth(
         _ proposedWidth: CGFloat,
+        leftSidebarWidth: CGFloat = 0,
         sidebarVisible: Bool = false,
         libraryOverlayVisible: Bool = false
     ) -> CGFloat {
-        min(max(proposedWidth, minRightPanelWidth), maxRightPanelWidth(sidebarVisible: sidebarVisible, libraryOverlayVisible: libraryOverlayVisible))
+        min(max(proposedWidth, minRightPanelWidth), maxRightPanelWidth(leftSidebarWidth: leftSidebarWidth, sidebarVisible: sidebarVisible, libraryOverlayVisible: libraryOverlayVisible))
     }
 
-    private func maxRightPanelWidth(sidebarVisible: Bool, libraryOverlayVisible: Bool) -> CGFloat {
+    private func maxLeftSidebarWidth(rightPanelVisible: Bool, preferredRightPanelWidth: Double) -> CGFloat {
+        let rightWidth = rightPanelVisible
+            ? (preferredRightPanelWidth > 0 ? CGFloat(preferredRightPanelWidth) : defaultRightPanelWidth)
+            : 0
+        let minReaderWidth: CGFloat = width < 980 ? 300 : 420
+        let available = width - railWidth - rightWidth - minReaderWidth
+        return max(minSidebarWidth, min(420, available))
+    }
+
+    private func maxRightPanelWidth(leftSidebarWidth: CGFloat, sidebarVisible: Bool, libraryOverlayVisible: Bool) -> CGFloat {
         let sidebarIsShown = (showsSidebar && sidebarVisible) || libraryOverlayVisible
-        let occupiedWidth = railWidth + (sidebarIsShown ? sidebarWidth : 0)
+        let occupiedWidth = railWidth + (sidebarIsShown ? leftSidebarWidth : 0)
         let minReaderWidth: CGFloat = width < 980 ? 300 : 380
         let available = width - occupiedWidth - minReaderWidth
         return max(minRightPanelWidth, min(840, available))
+    }
+}
+
+private struct SidebarResizeHandle: View {
+    let isActive: Bool
+    let onChanged: (CGFloat) -> Void
+    let onEnded: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 14)
+            .overlay {
+                Capsule()
+                    .fill((isHovering || isActive) ? NativeProTheme.accent.opacity(0.72) : NativeProTheme.separator.opacity(0.45))
+                    .frame(width: (isHovering || isActive) ? 4 : 2)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        onChanged(value.translation.width)
+                    }
+                    .onEnded { _ in
+                        onEnded()
+                    }
+            )
+            .onHover { hovering in
+                isHovering = hovering
+            }
+            .help("Resize sidebar")
+            .accessibilityLabel("Resize sidebar")
     }
 }
 
@@ -296,41 +411,49 @@ private struct CommandRailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 10) {
-                RailButton(title: model.rightPanelMode == .chat && model.isInspectorVisible ? "Hide Chat" : "Chat", systemImage: "bubble.left.and.bubble.right", isActive: model.rightPanelMode == .chat && model.isInspectorVisible) {
-                    model.toggleChat()
-                }
+            ReadArcGlassContainer(spacing: 8) {
+                VStack(spacing: 8) {
+                    RailButton(title: model.rightPanelMode == .chat && model.isInspectorVisible ? "Hide Chat" : "Chat", systemImage: "bubble.left.and.bubble.right", isActive: model.rightPanelMode == .chat && model.isInspectorVisible) {
+                        model.toggleChat()
+                    }
 
-                RailButton(
-                    title: language.text("library.title"),
-                    systemImage: "folder",
-                    isActive: model.isLibraryOverlayVisible
-                ) {
-                    model.showLibrary()
-                }
-
-                RailButton(
-                    title: language.text("thumbnails.title"),
-                    systemImage: "sidebar.leading",
-                    isActive: model.hasDocument && model.isSidebarVisible && !model.isLibraryOverlayVisible
-                ) {
-                    if model.hasDocument {
-                        model.showThumbnails()
-                    } else {
+                    RailButton(
+                        title: language.text("library.title"),
+                        systemImage: "folder",
+                        isActive: model.isLibraryOverlayVisible
+                    ) {
                         model.showLibrary()
                     }
+
+                    RailButton(
+                        title: language.text("thumbnails.title"),
+                        systemImage: "sidebar.leading",
+                        isActive: model.hasDocument && model.isSidebarVisible && !model.isLibraryOverlayVisible
+                    ) {
+                        if model.hasDocument {
+                            model.showThumbnails()
+                        } else {
+                            model.showLibrary()
+                        }
+                    }
+                    RailButton(title: "Search", systemImage: "magnifyingglass", isActive: model.rightPanelMode == .research && model.inspectorTab == .search && model.isInspectorVisible) {
+                        model.showResearch(tab: .search)
+                    }
+                    RailButton(title: "Notes", systemImage: "note.text", isActive: model.rightPanelMode == .focus && model.isInspectorVisible) {
+                        model.showFocus()
+                    }
+                    RailButton(title: "Outline", systemImage: "list.bullet.rectangle", isActive: model.rightPanelMode == .research && model.inspectorTab == .outline && model.isInspectorVisible) {
+                        model.showResearch(tab: .outline)
+                    }
                 }
-                RailButton(title: "Search", systemImage: "magnifyingglass", isActive: model.rightPanelMode == .research && model.inspectorTab == .search && model.isInspectorVisible) {
-                    model.showResearch(tab: .search)
-                }
-                RailButton(title: "Notes", systemImage: "note.text", isActive: model.rightPanelMode == .focus && model.isInspectorVisible) {
-                    model.showFocus()
-                }
-                RailButton(title: "Outline", systemImage: "list.bullet.rectangle", isActive: model.rightPanelMode == .research && model.inspectorTab == .outline && model.isInspectorVisible) {
-                    model.showResearch(tab: .outline)
-                }
+                .padding(.vertical, 6)
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 18, style: .continuous),
+                    fallbackColor: NativeProTheme.panel.opacity(0.26),
+                    strokeColor: NativeProTheme.separator.opacity(0.45)
+                )
             }
-            .padding(.top, 28)
+            .padding(.top, 20)
             .frame(maxWidth: .infinity, alignment: .center)
 
             Spacer(minLength: 0)
@@ -342,12 +465,7 @@ private struct CommandRailView: View {
             .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .background(NativeProTheme.commandRail)
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(width: 1)
-        }
+        .background(Color.clear)
     }
 
     private var appearanceMode: Binding<AppAppearanceMode> {
@@ -425,12 +543,35 @@ private struct RailSettingsMenu: View {
                     appLanguage = .english
                 }
             }
+
+            Section(language.text("updates.title")) {
+                Button {
+                    AppUpdateChecker.checkForUpdates(language: language)
+                } label: {
+                    Label(language.text("updates.check"), systemImage: "arrow.down.circle")
+                }
+            }
+
+            Section("ReadArc") {
+                Button {
+                    if let url = URL(string: "https://github.com/Zanetach/ReadArc") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    Label(language.text("github.star"), systemImage: "star")
+                }
+            }
         } label: {
             Image(systemName: "gearshape")
                 .font(.system(size: 18, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .frame(width: 44, height: 44)
-                .background(Color.clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                    fallbackColor: Color.clear,
+                    strokeColor: Color.clear,
+                    isInteractive: true
+                )
                 .foregroundStyle(NativeProTheme.muted)
         }
         .menuStyle(.borderlessButton)
@@ -487,11 +628,13 @@ private struct RailButton: View {
                 .font(.system(size: 18, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .frame(width: 44, height: 44)
-                .background(isActive ? NativeProTheme.selection : Color.clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(isActive ? NativeProTheme.accent.opacity(0.40) : .clear, lineWidth: 1)
-                }
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                    fallbackColor: isActive ? NativeProTheme.selection : Color.clear,
+                    strokeColor: isActive ? NativeProTheme.accent.opacity(0.40) : .clear,
+                    isInteractive: true,
+                    tint: isActive ? NativeProTheme.accent.opacity(0.18) : nil
+                )
                 .foregroundStyle(isActive ? NativeProTheme.accent : NativeProTheme.muted)
         }
         .frame(width: 54, height: 50)

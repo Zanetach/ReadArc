@@ -15,51 +15,57 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            libraryHeader
+            VStack(spacing: 0) {
+                libraryHeader
 
-            collectionStrip
+                collectionStrip
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    if let selectedDocument {
-                        SectionLabel(language.text("library.pinned"))
-                        RecentDocumentRow(
-                            document: selectedDocument,
-                            isSelected: true,
-                            openRecent: openRecent,
-                            removeRecent: removeRecent
-                        )
-                    }
-
-                    SectionLabel(language.text("library.recent"))
-
-                    if filteredDocuments.isEmpty {
-                        emptyRecentState
-                    } else {
-                        ForEach(filteredDocuments) { document in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        if let selectedDocument {
+                            SectionLabel(language.text("library.pinned"))
                             RecentDocumentRow(
-                                document: document,
-                                isSelected: document.url == selectedURL,
+                                document: selectedDocument,
+                                isSelected: true,
                                 openRecent: openRecent,
                                 removeRecent: removeRecent
                             )
                         }
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-            }
-            .scrollContentBackground(.hidden)
 
-            libraryFooter
+                        SectionLabel(language.text("library.recent"))
+
+                        if filteredDocuments.isEmpty {
+                            emptyRecentState
+                        } else {
+                            ForEach(filteredDocuments) { document in
+                                RecentDocumentRow(
+                                    document: document,
+                                    isSelected: document.url == selectedURL,
+                                    openRecent: openRecent,
+                                    removeRecent: removeRecent
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                }
+                .scrollContentBackground(.hidden)
+
+                libraryFooter
+            }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous),
+                fallbackColor: NativeProTheme.sidebar.opacity(0.82),
+                strokeColor: NativeProTheme.separator.opacity(0.55)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .padding(.trailing, 12)
         .opacity(readerMode == .focus ? 0.35 : 1)
-        .background(NativeProTheme.sidebar)
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(width: 1)
-        }
+        .background(Color.clear)
     }
 
     private var libraryHeader: some View {
@@ -85,11 +91,11 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 9)
             .frame(height: 28)
-            .background(NativeProTheme.panel.opacity(0.68), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(NativeProTheme.separator, lineWidth: 1)
-            }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous),
+                fallbackColor: NativeProTheme.panel.opacity(0.68),
+                strokeColor: NativeProTheme.separator
+            )
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
@@ -204,11 +210,13 @@ private struct RecentDocumentRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 8)
             .padding(.vertical, 9)
-            .background(isSelected ? NativeProTheme.selection : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(isSelected ? NativeProTheme.accent.opacity(0.18) : .clear, lineWidth: 1)
-            }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 9, style: .continuous),
+                fallbackColor: isSelected ? NativeProTheme.selection : Color.clear,
+                strokeColor: isSelected ? NativeProTheme.accent.opacity(0.18) : .clear,
+                isInteractive: true,
+                tint: isSelected ? NativeProTheme.accent.opacity(0.12) : nil
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -247,11 +255,13 @@ private struct CollectionChip: View {
             .foregroundStyle(isActive ? NativeProTheme.accent : NativeProTheme.muted)
             .padding(.horizontal, 9)
             .frame(height: 24)
-            .background(isActive ? NativeProTheme.selection.opacity(0.86) : NativeProTheme.panel.opacity(0.45), in: Capsule())
-            .overlay {
-                Capsule()
-                    .stroke(isActive ? NativeProTheme.accent.opacity(0.24) : NativeProTheme.separator, lineWidth: 1)
-            }
+            .readArcGlass(
+                in: Capsule(),
+                fallbackColor: isActive ? NativeProTheme.selection.opacity(0.86) : NativeProTheme.panel.opacity(0.45),
+                strokeColor: isActive ? NativeProTheme.accent.opacity(0.24) : NativeProTheme.separator,
+                isInteractive: true,
+                tint: isActive ? NativeProTheme.accent.opacity(0.12) : nil
+            )
     }
 }
 

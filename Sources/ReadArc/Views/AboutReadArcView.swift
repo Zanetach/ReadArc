@@ -44,22 +44,24 @@ struct AboutReadArcView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 34)
                     .foregroundStyle(NativeProTheme.primaryButtonText)
-                    .background(NativeProTheme.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Color.white.opacity(0.20), lineWidth: 1)
-                    }
+                    .readArcGlass(
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous),
+                        fallbackColor: NativeProTheme.accent,
+                        strokeColor: Color.white.opacity(0.20),
+                        isInteractive: true,
+                        tint: NativeProTheme.accent.opacity(0.24)
+                    )
                 }
                 .buttonStyle(.plain)
                 .disabled(repositoryURL == nil)
                 .help("Open GitHub repository")
             }
             .padding(14)
-            .background(NativeProTheme.panel.opacity(0.74), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(NativeProTheme.separator, lineWidth: 1)
-            }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                fallbackColor: NativeProTheme.panel.opacity(0.74),
+                strokeColor: NativeProTheme.separator
+            )
             .padding(.horizontal, 22)
 
             Text("Copyright © 2026 Zanetach")
@@ -69,7 +71,7 @@ struct AboutReadArcView: View {
                 .padding(.bottom, 20)
         }
         .frame(width: 320)
-        .background(NativeProTheme.inspector)
+        .background(NativeProTheme.inspector.opacity(0.92))
     }
 }
 

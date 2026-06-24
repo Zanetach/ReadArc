@@ -65,7 +65,12 @@ struct AgentChatView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(NativeProTheme.accent)
                     .frame(width: 30, height: 30)
-                    .background(NativeProTheme.selection.opacity(0.86), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .readArcGlass(
+                        in: RoundedRectangle(cornerRadius: 9, style: .continuous),
+                        fallbackColor: NativeProTheme.selection.opacity(0.86),
+                        strokeColor: NativeProTheme.accent.opacity(0.18),
+                        tint: NativeProTheme.accent.opacity(0.12)
+                    )
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(language.text("chat.title"))
@@ -110,15 +115,20 @@ struct AgentChatView: View {
                 .foregroundStyle(model.hasDocument ? NativeProTheme.success : NativeProTheme.muted)
                 .padding(.horizontal, 8)
                 .frame(height: 24)
-                .background(model.hasDocument ? NativeProTheme.selection.opacity(0.72) : NativeProTheme.panel.opacity(0.52), in: Capsule())
+                .readArcGlass(
+                    in: Capsule(),
+                    fallbackColor: model.hasDocument ? NativeProTheme.selection.opacity(0.72) : NativeProTheme.panel.opacity(0.52),
+                    strokeColor: model.hasDocument ? NativeProTheme.success.opacity(0.20) : NativeProTheme.separator.opacity(0.7),
+                    tint: model.hasDocument ? NativeProTheme.success.opacity(0.10) : nil
+                )
             }
         }
         .padding(12)
-        .background(NativeProTheme.panel.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(NativeProTheme.separator.opacity(1.2))
-        }
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.72),
+            strokeColor: NativeProTheme.separator.opacity(1.2)
+        )
         .padding(.horizontal, 14)
         .padding(.bottom, 10)
     }
@@ -150,11 +160,11 @@ struct AgentChatView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(NativeProTheme.panel.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(NativeProTheme.separator)
-        }
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.82),
+            strokeColor: NativeProTheme.separator
+        )
     }
 
     private var composer: some View {
@@ -165,7 +175,7 @@ struct AgentChatView: View {
             }
         }
         .padding(14)
-        .background(NativeProTheme.inspector)
+        .background(.clear)
     }
 
     private var composerInput: some View {
@@ -177,11 +187,12 @@ struct AgentChatView: View {
             .padding(.vertical, 11)
             .frame(minHeight: 48, alignment: .topLeading)
             .frame(maxWidth: .infinity)
-            .background(NativeProTheme.panel.opacity(0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(NativeProTheme.separator, lineWidth: 1)
-            }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+                fallbackColor: NativeProTheme.panel.opacity(0.92),
+                strokeColor: NativeProTheme.separator,
+                isInteractive: true
+            )
     }
 
     private var sendButton: some View {
@@ -195,7 +206,13 @@ struct AgentChatView: View {
             Image(systemName: isStreaming ? "stop.fill" : "arrow.up")
                 .font(.system(size: 14, weight: .bold))
                 .frame(width: 42, height: 42)
-                .background(sendButtonBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+                    fallbackColor: sendButtonBackground,
+                    strokeColor: canSend || isStreaming ? NativeProTheme.accent.opacity(0.22) : NativeProTheme.separator,
+                    isInteractive: true,
+                    tint: canSend || isStreaming ? NativeProTheme.accent.opacity(0.22) : nil
+                )
                 .foregroundStyle(sendButtonForeground)
         }
         .buttonStyle(.plain)
@@ -399,7 +416,12 @@ private struct AgentStatusPill: View {
         .foregroundStyle(statusColor)
         .padding(.horizontal, 8)
         .frame(height: 24)
-        .background(NativeProTheme.tile.opacity(0.74), in: Capsule())
+        .readArcGlass(
+            in: Capsule(),
+            fallbackColor: NativeProTheme.tile.opacity(0.74),
+            strokeColor: NativeProTheme.separator.opacity(0.65),
+            tint: availability == .available ? NativeProTheme.success.opacity(0.10) : nil
+        )
         .help("\(agent.title): \(statusText)")
     }
 
@@ -469,11 +491,12 @@ private struct MessageBubble: View {
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 9)
-            .background(bubbleBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(message.role == .assistant ? NativeProTheme.separator : .clear, lineWidth: 1)
-            }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+                fallbackColor: bubbleBackground,
+                strokeColor: message.role == .assistant ? NativeProTheme.separator : .clear,
+                tint: message.role == .user ? NativeProTheme.accent.opacity(0.28) : nil
+            )
 
             if message.role == .assistant {
                 Spacer(minLength: 34)
@@ -605,10 +628,11 @@ private struct ChatAvatar: View {
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(role == .user ? NativeProTheme.accent : NativeProTheme.success)
             .frame(width: 30, height: 30)
-            .background(NativeProTheme.panel.opacity(0.82), in: Circle())
-            .overlay {
-                Circle()
-                    .stroke(NativeProTheme.separator, lineWidth: 1)
-            }
+            .readArcGlass(
+                in: Circle(),
+                fallbackColor: NativeProTheme.panel.opacity(0.82),
+                strokeColor: NativeProTheme.separator,
+                tint: role == .user ? NativeProTheme.accent.opacity(0.10) : NativeProTheme.success.opacity(0.10)
+            )
     }
 }

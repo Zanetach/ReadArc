@@ -6,45 +6,51 @@ struct PDFPageThumbnailPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let document = model.document {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 18) {
-                            ForEach(0..<document.pageCount, id: \.self) { pageIndex in
-                                PDFPageThumbnailButton(
-                                    document: document,
-                                    pageIndex: pageIndex,
-                                    isSelected: pageIndex == model.pageIndex
-                                ) {
-                                    model.send(.goToPage(pageIndex))
+            VStack(spacing: 0) {
+                if let document = model.document {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 18) {
+                                ForEach(0..<document.pageCount, id: \.self) { pageIndex in
+                                    PDFPageThumbnailButton(
+                                        document: document,
+                                        pageIndex: pageIndex,
+                                        isSelected: pageIndex == model.pageIndex
+                                    ) {
+                                        model.send(.goToPage(pageIndex))
+                                    }
+                                    .id(pageIndex)
                                 }
-                                .id(pageIndex)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.top, 16)
+                            .padding(.bottom, 18)
+                        }
+                        .scrollContentBackground(.hidden)
+                        .onAppear {
+                            proxy.scrollTo(model.pageIndex, anchor: .center)
+                        }
+                        .onChange(of: model.pageIndex) { _, pageIndex in
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                proxy.scrollTo(pageIndex, anchor: .center)
                             }
                         }
-                        .padding(.horizontal, 18)
-                        .padding(.top, 18)
-                        .padding(.bottom, 22)
                     }
-                    .scrollContentBackground(.hidden)
-                    .onAppear {
-                        proxy.scrollTo(model.pageIndex, anchor: .center)
-                    }
-                    .onChange(of: model.pageIndex) { _, pageIndex in
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            proxy.scrollTo(pageIndex, anchor: .center)
-                        }
-                    }
+                } else {
+                    Spacer(minLength: 0)
                 }
-            } else {
-                Spacer(minLength: 0)
             }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous),
+                fallbackColor: NativeProTheme.sidebar.opacity(0.92),
+                strokeColor: NativeProTheme.separator.opacity(0.55)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .background(NativeProTheme.window.opacity(0.96))
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(NativeProTheme.separator)
-                .frame(width: 1)
-        }
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .padding(.trailing, 10)
+        .background(Color.clear)
     }
 }
 
@@ -72,7 +78,13 @@ private struct PDFPageThumbnailButton: View {
                     .foregroundStyle(NativeProTheme.ink)
                     .padding(.horizontal, 8)
                     .frame(height: 20)
-                    .background(isSelected ? NativeProTheme.selection : Color.clear, in: Capsule())
+                    .readArcGlass(
+                        in: Capsule(),
+                        fallbackColor: isSelected ? NativeProTheme.selection : Color.clear,
+                        strokeColor: isSelected ? NativeProTheme.accent.opacity(0.24) : .clear,
+                        isInteractive: true,
+                        tint: isSelected ? NativeProTheme.accent.opacity(0.12) : nil
+                    )
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
