@@ -20,8 +20,8 @@ public final class RecentDocumentsStore: ObservableObject {
         self.documents = Self.loadDocuments(from: defaults, key: storageKey)
     }
 
-    public func add(url: URL, openedAt: Date = Date()) {
-        let document = RecentDocument(url: url, lastOpened: openedAt)
+    public func add(url: URL, openedAt: Date = Date(), bookmarkData: Data? = nil) {
+        let document = RecentDocument(url: url, lastOpened: openedAt, bookmarkData: bookmarkData)
         var next = documents.filter { $0.url != url }
         next.insert(document, at: 0)
         documents = Array(next.prefix(limit))
@@ -51,6 +51,6 @@ public final class RecentDocumentsStore: ObservableObject {
             return []
         }
 
-        return decoded.filter { FileManager.default.fileExists(atPath: $0.url.path) }
+        return decoded
     }
 }

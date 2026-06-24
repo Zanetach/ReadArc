@@ -250,13 +250,12 @@ struct AgentChatView: View {
         model.pruneChatHistory()
         draftMessage = ""
 
-        let workingDirectory = model.documentURL?.deletingLastPathComponent()
         activeTask = Task {
             do {
                 let stream = AgentStreamingService.stream(
                     prompt: agentPrompt,
                     agent: agent,
-                    workingDirectory: workingDirectory
+                    workingDirectory: nil
                 )
 
                 var pendingChunk = ""

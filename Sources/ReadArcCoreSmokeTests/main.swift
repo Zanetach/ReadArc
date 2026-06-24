@@ -26,13 +26,14 @@ struct ReadArcCoreSmokeTests {
         failures.append(contentsOf: testLimitKeepsMostRecentDocuments())
         failures.append(contentsOf: testAgentPromptIncludesBoundedCurrentPageContext())
         failures.append(contentsOf: testAgentPromptOmitsEmptyDocumentContext())
+        failures.append(contentsOf: testAgentPromptDiscouragesRepeatedRecaps())
         failures.append(contentsOf: testElapsedDurationUsesSecondsForShortReplies())
         failures.append(contentsOf: testElapsedDurationUsesMinutesForLongReplies())
         failures.append(contentsOf: testAgentPromptIncludesDocumentPageMap())
         failures.append(contentsOf: testCodexJSONParserExtractsAgentMessageText())
         failures.append(contentsOf: testCodexJSONParserIgnoresNonJSONWarnings())
         failures.append(contentsOf: testClaudeJSONParserExtractsStreamDelta())
-        failures.append(contentsOf: testClaudeJSONParserExtractsAssistantText())
+        failures.append(contentsOf: testClaudeJSONParserIgnoresAssistantSnapshots())
         failures.append(contentsOf: testClaudeJSONParserExtractsFinalResult())
         failures.append(contentsOf: testClaudeJSONParserIgnoresToolUse())
         failures.append(contentsOf: testSearchTextLocatorReturnsUTF16Range())
@@ -119,6 +120,26 @@ struct ReadArcCoreSmokeTests {
             : ["expected prompt without a document to state that no PDF is open"]
     }
 
+    private static func testAgentPromptDiscouragesRepeatedRecaps() -> [String] {
+        let prompt = AgentPromptBuilder.build(
+            userPrompt: "继续",
+            transcript: "Claude Code: 这份文档讲的是 onboarding 流程。\n\nUser: 继续",
+            pdfContext: nil
+        )
+
+        var failures: [String] = []
+        if !prompt.contains("Do not say you already analyzed") {
+            failures.append("expected prompt to prevent repeated Claude Code recap phrasing")
+        }
+        if !prompt.contains("context only") {
+            failures.append("expected transcript to be treated as context only")
+        }
+        if !prompt.contains("same language as the latest user message") {
+            failures.append("expected prompt to preserve user language")
+        }
+        return failures
+    }
+
     private static func testElapsedDurationUsesSecondsForShortReplies() -> [String] {
         let start = Date(timeIntervalSince1970: 10)
         let end = Date(timeIntervalSince1970: 11.42)
@@ -191,13 +212,13 @@ struct ReadArcCoreSmokeTests {
             : ["expected Claude JSON parser to extract stream_event text deltas"]
     }
 
-    private static func testClaudeJSONParserExtractsAssistantText() -> [String] {
+    private static func testClaudeJSONParserIgnoresAssistantSnapshots() -> [String] {
         let line = #"{"type":"assistant","message":{"type":"message","role":"assistant","content":[{"type":"text","text":"claude analysis"}]}}"#
         let event = ClaudeJSONEventParser.visibleEvent(fromLine: line)
 
-        return event == .assistantText("claude analysis")
+        return event == nil
             ? []
-            : ["expected Claude JSON parser to extract assistant text content"]
+            : ["expected Claude JSON parser to ignore assistant snapshots that duplicate text deltas"]
     }
 
     private static func testClaudeJSONParserExtractsFinalResult() -> [String] {

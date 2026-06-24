@@ -49,7 +49,7 @@ enum AgentStreamingService {
                 "never",
                 "-"
             ]
-            process.currentDirectoryURL = workingDirectory
+            process.currentDirectoryURL = workingDirectory ?? safeWorkingDirectory()
             process.standardInput = stdin
             process.standardOutput = stdout
             process.standardError = stderr
@@ -112,7 +112,7 @@ enum AgentStreamingService {
                 "stream-json",
                 "--include-partial-messages"
             ]
-            process.currentDirectoryURL = workingDirectory
+            process.currentDirectoryURL = workingDirectory ?? safeWorkingDirectory()
             process.standardInput = stdin
             process.standardOutput = stdout
             process.standardError = stderr
@@ -176,6 +176,26 @@ enum AgentStreamingService {
         let currentPath = env["PATH"] ?? ""
         env["PATH"] = (extraPaths + [currentPath]).joined(separator: ":")
         return env
+    }
+
+    private static func safeWorkingDirectory() -> URL? {
+        guard let applicationSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+
+        let directory = applicationSupport
+            .appendingPathComponent("ReadArc", isDirectory: true)
+            .appendingPathComponent("AgentWorkspace", isDirectory: true)
+
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            return directory
+        } catch {
+            return nil
+        }
     }
 
     private static func writePrompt(_ prompt: String, to pipe: Pipe) {

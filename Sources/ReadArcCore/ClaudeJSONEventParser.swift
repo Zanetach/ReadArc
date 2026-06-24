@@ -43,27 +43,11 @@ public enum ClaudeJSONEventParser {
             return nonEmpty(text)
         }
 
-        guard root["type"] as? String == "assistant",
-              let message = root["message"] as? [String: Any] else {
-            return nil
-        }
-
-        if let text = message["content"] as? String {
-            return nonEmpty(text)
-        }
-
-        guard let content = message["content"] as? [[String: Any]] else {
-            return nil
-        }
-
-        let text = content
-            .compactMap { block -> String? in
-                guard block["type"] as? String == "text" else { return nil }
-                return block["text"] as? String
-            }
-            .joined()
-
-        return nonEmpty(text)
+        // Claude Code can emit full assistant message snapshots when
+        // --include-partial-messages is enabled. Those snapshots duplicate the
+        // content_block_delta stream, so visible output only consumes deltas and
+        // uses the final result event as a fallback.
+        return nil
     }
 
     private static func nonEmpty(_ text: String) -> String? {

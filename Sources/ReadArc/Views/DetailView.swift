@@ -53,18 +53,18 @@ private struct EmptyDocumentView: View {
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 22) {
             Image(systemName: "doc.richtext")
-                .font(.system(size: 52, weight: .regular))
+                .font(.system(size: 74, weight: .regular))
                 .foregroundStyle(NativeProTheme.muted)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text(language.text("empty.title"))
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(NativeProTheme.ink)
 
                 Text(language.text("empty.subtitle"))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(NativeProTheme.muted)
             }
 
@@ -72,8 +72,13 @@ private struct EmptyDocumentView: View {
                 openDocument()
             } label: {
                 Label(language.text("openPDF"), systemImage: "folder")
+                    .font(.system(size: 15, weight: .semibold))
+                    .padding(.horizontal, 18)
+                    .frame(height: 36)
             }
+            .buttonStyle(.plain)
             .keyboardShortcut("o")
+            .foregroundStyle(NativeProTheme.accent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(NativeProTheme.readerCanvas)

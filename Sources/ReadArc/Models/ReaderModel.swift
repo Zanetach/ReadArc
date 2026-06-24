@@ -41,6 +41,7 @@ final class ReaderModel: NSObject, ObservableObject {
     private var searchTask: Task<Void, Never>?
     private var pageTextTask: Task<Void, Never>?
     private var activeLoadID: UUID?
+    private var documentBookmarkData: Data?
     private var cachedPageTexts: [DocumentPageText] = []
     nonisolated private static let maxSearchResultCount = 500
     nonisolated private static let minimumSearchLength = 2
@@ -132,17 +133,19 @@ final class ReaderModel: NSObject, ObservableObject {
         panel.message = "Choose a PDF document to read."
 
         if panel.runModal() == .OK, let url = panel.url {
-            load(url: url)
+            load(url: url, bookmarkData: Self.makeSecurityScopedBookmark(for: url))
         }
     }
 
-    func load(url: URL) {
+    func load(url: URL, bookmarkData: Data? = nil) {
         guard url.pathExtension.lowercased() == "pdf" else {
             errorMessage = "The selected file is not a PDF."
             return
         }
 
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        guard Self.withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData, { scopedURL in
+            FileManager.default.fileExists(atPath: scopedURL.path)
+        }) else {
             errorMessage = "The file no longer exists."
             return
         }
@@ -167,10 +170,11 @@ final class ReaderModel: NSObject, ObservableObject {
         searchResults = []
         selectedSearchIndex = nil
         outlineItems = []
+        documentBookmarkData = bookmarkData
         cachedPageTexts = []
 
         loadTask = Task.detached(priority: .userInitiated) { [weak self] in
-            let payload = Self.loadPDFPayload(url: url)
+            let payload = Self.loadPDFPayload(url: url, bookmarkData: bookmarkData)
 
             guard !Task.isCancelled else { return }
 
@@ -189,6 +193,7 @@ final class ReaderModel: NSObject, ObservableObject {
 
                 self.document = payload.document
                 self.documentURL = url
+                self.documentBookmarkData = bookmarkData
                 self.pageIndex = 0
                 self.pageCount = payload.pageCount
                 self.scaleFactor = 1
@@ -197,7 +202,7 @@ final class ReaderModel: NSObject, ObservableObject {
                 self.isLibraryOverlayVisible = false
                 self.isSidebarVisible = true
                 self.isLoadingDocument = false
-                self.recents.add(url: url)
+                self.recents.add(url: url, bookmarkData: bookmarkData)
                 self.schedulePageTextCache(around: 0)
                 self.scheduleSearch()
                 self.loadTask = nil
@@ -206,7 +211,7 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func openRecent(_ recent: RecentDocument) {
-        load(url: recent.url)
+        load(url: recent.url, bookmarkData: recent.bookmarkData)
     }
 
     func removeRecent(_ recent: RecentDocument) {
@@ -234,6 +239,7 @@ final class ReaderModel: NSObject, ObservableObject {
         isSearching = false
         isSearchTruncated = false
         outlineItems = []
+        documentBookmarkData = nil
         cachedPageTexts = []
         pageTextTask = nil
     }
@@ -435,11 +441,12 @@ final class ReaderModel: NSObject, ObservableObject {
         isSearchTruncated = false
 
         let limit = Self.maxSearchResultCount
+        let bookmarkData = documentBookmarkData
         searchTask = Task.detached(priority: .utility) { [weak self] in
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
 
-            let output = Self.searchPDF(url: documentURL, query: trimmedQuery, limit: limit)
+            let output = Self.searchPDF(url: documentURL, bookmarkData: bookmarkData, query: trimmedQuery, limit: limit)
 
             guard !Task.isCancelled else { return }
 
@@ -470,15 +477,17 @@ final class ReaderModel: NSObject, ObservableObject {
         )
     }
 
-    nonisolated private static func loadPDFPayload(url: URL) -> LoadedPDFPayload? {
-        autoreleasepool {
-            guard let document = PDFDocument(url: url) else { return nil }
-            return LoadedPDFPayload(
-                document: document,
-                pageCount: document.pageCount,
-                outlineItems: buildOutlineItems(for: document),
-                pageTexts: buildPageTexts(for: document)
-            )
+    nonisolated private static func loadPDFPayload(url: URL, bookmarkData: Data?) -> LoadedPDFPayload? {
+        withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData) { scopedURL in
+            autoreleasepool {
+                guard let document = PDFDocument(url: scopedURL) else { return nil }
+                return LoadedPDFPayload(
+                    document: document,
+                    pageCount: document.pageCount,
+                    outlineItems: buildOutlineItems(for: document),
+                    pageTexts: buildPageTexts(for: document)
+                )
+            }
         }
     }
 
@@ -516,6 +525,43 @@ final class ReaderModel: NSObject, ObservableObject {
         }
     }
 
+    nonisolated private static func makeSecurityScopedBookmark(for url: URL) -> Data? {
+        try? url.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+    }
+
+    nonisolated private static func withSecurityScopedFileAccess<T>(
+        url: URL,
+        bookmarkData: Data?,
+        _ work: (URL) -> T
+    ) -> T {
+        var scopedURL = url
+
+        if let bookmarkData {
+            var isStale = false
+            if let resolvedURL = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope, .withoutUI],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ), !isStale {
+                scopedURL = resolvedURL
+            }
+        }
+
+        let didStartAccessing = scopedURL.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                scopedURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return work(scopedURL)
+    }
+
     private func schedulePageTextCache(around pageIndex: Int) {
         guard let documentURL else { return }
         let candidateIndexes = [pageIndex - 1, pageIndex, pageIndex + 1]
@@ -524,8 +570,9 @@ final class ReaderModel: NSObject, ObservableObject {
 
         pageTextTask?.cancel()
         let activeURL = documentURL
+        let bookmarkData = documentBookmarkData
         pageTextTask = Task.detached(priority: .utility) { [weak self] in
-            let pageTexts = Self.extractPageTexts(url: activeURL, pageIndexes: candidateIndexes)
+            let pageTexts = Self.extractPageTexts(url: activeURL, bookmarkData: bookmarkData, pageIndexes: candidateIndexes)
             guard !Task.isCancelled, !pageTexts.isEmpty else { return }
 
             await MainActor.run {
@@ -540,13 +587,15 @@ final class ReaderModel: NSObject, ObservableObject {
         }
     }
 
-    nonisolated private static func extractPageTexts(url: URL, pageIndexes: [Int]) -> [DocumentPageText] {
-        autoreleasepool {
-            guard let document = PDFDocument(url: url) else { return [] }
-            return pageIndexes.compactMap { pageIndex in
-                guard pageIndex >= 0, pageIndex < document.pageCount else { return nil }
-                let text = document.page(at: pageIndex)?.string ?? ""
-                return DocumentPageText(pageIndex: pageIndex, text: boundedPageText(text))
+    nonisolated private static func extractPageTexts(url: URL, bookmarkData: Data?, pageIndexes: [Int]) -> [DocumentPageText] {
+        withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData) { scopedURL in
+            autoreleasepool {
+                guard let document = PDFDocument(url: scopedURL) else { return [] }
+                return pageIndexes.compactMap { pageIndex in
+                    guard pageIndex >= 0, pageIndex < document.pageCount else { return nil }
+                    let text = document.page(at: pageIndex)?.string ?? ""
+                    return DocumentPageText(pageIndex: pageIndex, text: boundedPageText(text))
+                }
             }
         }
     }
@@ -635,58 +684,60 @@ final class ReaderModel: NSObject, ObservableObject {
         }
     }
 
-    nonisolated private static func searchPDF(url: URL, query: String, limit: Int) -> SearchOutput {
-        guard let document = PDFDocument(url: url) else {
-            return SearchOutput(results: [], truncated: false)
-        }
-
-        var results: [SearchMatch] = []
-        let pageCount = document.pageCount
-
-        for pageIndex in 0..<pageCount {
-            guard !Task.isCancelled else {
-                return SearchOutput(results: results, truncated: true)
+    nonisolated private static func searchPDF(url: URL, bookmarkData: Data?, query: String, limit: Int) -> SearchOutput {
+        withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData) { scopedURL in
+            guard let document = PDFDocument(url: scopedURL) else {
+                return SearchOutput(results: [], truncated: false)
             }
 
-            guard results.count < limit else {
-                return SearchOutput(results: results, truncated: true)
-            }
+            var results: [SearchMatch] = []
+            let pageCount = document.pageCount
 
-            autoreleasepool {
-                guard let pageText = document.page(at: pageIndex)?.string,
-                      !pageText.isEmpty else {
-                    return
+            for pageIndex in 0..<pageCount {
+                guard !Task.isCancelled else {
+                    return SearchOutput(results: results, truncated: true)
                 }
 
-                var searchRange = pageText.startIndex..<pageText.endIndex
-                while let range = pageText.range(
-                    of: query,
-                    options: [.caseInsensitive, .diacriticInsensitive],
-                    range: searchRange
-                ) {
-                    guard !Task.isCancelled else { break }
+                guard results.count < limit else {
+                    return SearchOutput(results: results, truncated: true)
+                }
 
-                    let resultIndex = results.count
-                    let matchLocation = SearchTextLocator.match(in: pageText, range: range)
-                    results.append(
-                        SearchMatch(
-                            id: resultIndex,
-                            index: resultIndex,
-                            pageIndex: pageIndex,
-                            matchLocation: matchLocation.location,
-                            matchLength: matchLocation.length,
-                            pageLabel: "Page \(pageIndex + 1)",
-                            excerpt: excerpt(from: pageText, around: range, fallback: query)
+                autoreleasepool {
+                    guard let pageText = document.page(at: pageIndex)?.string,
+                          !pageText.isEmpty else {
+                        return
+                    }
+
+                    var searchRange = pageText.startIndex..<pageText.endIndex
+                    while let range = pageText.range(
+                        of: query,
+                        options: [.caseInsensitive, .diacriticInsensitive],
+                        range: searchRange
+                    ) {
+                        guard !Task.isCancelled else { break }
+
+                        let resultIndex = results.count
+                        let matchLocation = SearchTextLocator.match(in: pageText, range: range)
+                        results.append(
+                            SearchMatch(
+                                id: resultIndex,
+                                index: resultIndex,
+                                pageIndex: pageIndex,
+                                matchLocation: matchLocation.location,
+                                matchLength: matchLocation.length,
+                                pageLabel: "Page \(pageIndex + 1)",
+                                excerpt: excerpt(from: pageText, around: range, fallback: query)
+                            )
                         )
-                    )
 
-                    guard results.count < limit else { break }
-                    searchRange = range.upperBound..<pageText.endIndex
+                        guard results.count < limit else { break }
+                        searchRange = range.upperBound..<pageText.endIndex
+                    }
                 }
             }
-        }
 
-        return SearchOutput(results: results, truncated: false)
+            return SearchOutput(results: results, truncated: false)
+        }
     }
 
     nonisolated private static func excerpt(from text: String?, fallback: String) -> String {
@@ -717,6 +768,6 @@ final class ReaderModel: NSObject, ObservableObject {
 
     @objc private func handleOpenFileRequest(_ notification: Notification) {
         guard let url = notification.object as? URL else { return }
-        load(url: url)
+        load(url: url, bookmarkData: Self.makeSecurityScopedBookmark(for: url))
     }
 }
