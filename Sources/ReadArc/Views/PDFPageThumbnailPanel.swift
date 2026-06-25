@@ -42,7 +42,7 @@ struct PDFPageThumbnailPanel: View {
             }
             .readArcGlass(
                 in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                fallbackColor: NativeProTheme.sidebar.opacity(0.92),
+                fallbackColor: NativeProTheme.sidebar,
                 strokeColor: NativeProTheme.separator.opacity(0.55)
             )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))

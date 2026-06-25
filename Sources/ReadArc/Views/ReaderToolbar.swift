@@ -12,7 +12,8 @@ struct ReaderToolbar: View {
             }
         }
         .frame(height: toolbarHeight)
-        .background(NativeProTheme.header.opacity(0.92))
+        .background(.ultraThinMaterial)
+        .background(NativeProTheme.header.opacity(0.76))
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(NativeProTheme.separator)

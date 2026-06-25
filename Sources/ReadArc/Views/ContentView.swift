@@ -33,51 +33,60 @@ struct ContentView: View {
                         .frame(width: layout.railWidth)
 
                     if leftSidebarVisible {
-                        leftSidebar
-                            .frame(width: leftSidebarWidth)
-                            .transition(.move(edge: .leading).combined(with: .opacity))
+                        ZStack(alignment: .trailing) {
+                            leftSidebar
+                                .frame(width: leftSidebarWidth)
 
-                        SidebarResizeHandle(
-                            isActive: leftSidebarDragStartWidth != nil,
-                            onChanged: { translation in
-                                resizeLeftSidebar(
-                                    translation: translation,
-                                    currentWidth: leftSidebarWidth,
-                                    layout: layout
-                                )
-                            },
-                            onEnded: {
-                                leftSidebarDragStartWidth = nil
-                            }
-                        )
+                            SidebarResizeHandle(
+                                isActive: leftSidebarDragStartWidth != nil,
+                                onChanged: { translation in
+                                    resizeLeftSidebar(
+                                        translation: translation,
+                                        currentWidth: leftSidebarWidth,
+                                        layout: layout
+                                    )
+                                },
+                                onEnded: {
+                                    leftSidebarDragStartWidth = nil
+                                }
+                            )
+                        }
+                        .frame(width: leftSidebarWidth)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
                     }
 
                     DetailView(model: model)
                         .frame(minWidth: 0, maxWidth: .infinity)
 
                     if model.isInspectorVisible {
-                        RightPanelResizeHandle(
-                            isActive: rightPanelDragStartWidth != nil,
-                            onChanged: { translation in
-                                resizeRightPanel(
-                                    translation: translation,
-                                    currentWidth: rightPanelWidth,
-                                    layout: layout
-                                )
-                            },
-                            onEnded: {
-                                rightPanelDragStartWidth = nil
-                            }
-                        )
+                        ZStack(alignment: .leading) {
+                            rightPanel
+                                .frame(width: rightPanelWidth)
 
-                        rightPanel
-                            .frame(width: rightPanelWidth)
+                            RightPanelResizeHandle(
+                                isActive: rightPanelDragStartWidth != nil,
+                                onChanged: { translation in
+                                    resizeRightPanel(
+                                        translation: translation,
+                                        currentWidth: rightPanelWidth,
+                                        layout: layout
+                                    )
+                                },
+                                onEnded: {
+                                    rightPanelDragStartWidth = nil
+                                }
+                            )
+                        }
+                        .frame(width: rightPanelWidth)
                             .transition(.move(edge: .trailing).combined(with: .opacity))
                     }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(NativeProTheme.window)
+            .background {
+                WindowGlassBackground()
+                NativeProTheme.window
+            }
         }
         .ignoresSafeArea(.container, edges: .top)
         .animation(.easeInOut(duration: 0.16), value: model.isInspectorVisible)
@@ -95,7 +104,10 @@ struct ContentView: View {
             }
         }
         .tint(NativeProTheme.accent)
-        .background(NativeProTheme.window)
+        .background {
+            WindowGlassBackground()
+            NativeProTheme.window
+        }
         .alert("Unable to Open PDF", isPresented: errorBinding) {
             Button("OK") {
                 model.errorMessage = nil
@@ -141,12 +153,6 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .readArcGlass(
-            in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-            fallbackColor: NativeProTheme.inspector.opacity(0.96),
-            strokeColor: NativeProTheme.separator.opacity(0.55)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .padding(.top, 10)
         .padding(.bottom, 10)
         .padding(.trailing, 10)
@@ -317,11 +323,12 @@ private struct SidebarResizeHandle: View {
     var body: some View {
         Rectangle()
             .fill(Color.clear)
-            .frame(width: 14)
+            .frame(width: 12)
             .overlay {
                 Capsule()
-                    .fill((isHovering || isActive) ? NativeProTheme.accent.opacity(0.72) : NativeProTheme.separator.opacity(0.45))
+                    .fill(handleColor)
                     .frame(width: (isHovering || isActive) ? 4 : 2)
+                    .opacity((isHovering || isActive) ? 1 : 0)
             }
             .contentShape(Rectangle())
             .gesture(
@@ -336,8 +343,11 @@ private struct SidebarResizeHandle: View {
             .onHover { hovering in
                 isHovering = hovering
             }
-            .help("Resize sidebar")
             .accessibilityLabel("Resize sidebar")
+    }
+
+    private var handleColor: Color {
+        isActive ? NativeProTheme.accent.opacity(0.62) : NativeProTheme.separator.opacity(0.70)
     }
 }
 
@@ -350,11 +360,12 @@ private struct RightPanelResizeHandle: View {
     var body: some View {
         Rectangle()
             .fill(Color.clear)
-            .frame(width: 16)
+            .frame(width: 12)
             .overlay {
                 Capsule()
-                    .fill((isHovering || isActive) ? NativeProTheme.accent.opacity(0.78) : NativeProTheme.separator.opacity(0.9))
+                    .fill(handleColor)
                     .frame(width: (isHovering || isActive) ? 4 : 2)
+                    .opacity((isHovering || isActive) ? 1 : 0)
             }
             .contentShape(Rectangle())
             .gesture(
@@ -369,8 +380,11 @@ private struct RightPanelResizeHandle: View {
             .onHover { hovering in
                 isHovering = hovering
             }
-            .help("Resize panel")
             .accessibilityLabel("Resize right panel")
+    }
+
+    private var handleColor: Color {
+        isActive ? NativeProTheme.accent.opacity(0.62) : NativeProTheme.separator.opacity(0.70)
     }
 }
 
@@ -449,8 +463,8 @@ private struct CommandRailView: View {
                 .padding(.vertical, 6)
                 .readArcGlass(
                     in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                    fallbackColor: NativeProTheme.panel.opacity(0.26),
-                    strokeColor: NativeProTheme.separator.opacity(0.45)
+                    fallbackColor: NativeProTheme.commandRail,
+                    strokeColor: NativeProTheme.separator.opacity(0.42)
                 )
             }
             .padding(.top, 20)
@@ -630,10 +644,10 @@ private struct RailButton: View {
                 .frame(width: 44, height: 44)
                 .readArcGlass(
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-                    fallbackColor: isActive ? NativeProTheme.selection : Color.clear,
-                    strokeColor: isActive ? NativeProTheme.accent.opacity(0.40) : .clear,
+                    fallbackColor: isActive ? NativeProTheme.selection.opacity(0.72) : Color.clear,
+                    strokeColor: isActive ? NativeProTheme.accent.opacity(0.22) : .clear,
                     isInteractive: true,
-                    tint: isActive ? NativeProTheme.accent.opacity(0.18) : nil
+                    tint: isActive ? NativeProTheme.accent.opacity(0.10) : nil
                 )
                 .foregroundStyle(isActive ? NativeProTheme.accent : NativeProTheme.muted)
         }

@@ -19,7 +19,8 @@ extension View {
         tint: Color? = nil,
         fallbackStrokeWidth: CGFloat = 1
     ) -> some View {
-        background(.regularMaterial, in: shape)
+        let material: Material = isInteractive ? .regularMaterial : .thinMaterial
+        background(material, in: shape)
             .background(fallbackColor, in: shape)
             .overlay {
                 shape.stroke(strokeColor, lineWidth: fallbackStrokeWidth)

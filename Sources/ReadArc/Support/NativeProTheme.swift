@@ -2,15 +2,15 @@ import AppKit
 import SwiftUI
 
 enum NativeProTheme {
-    static let window = adaptive(light: rgb(0.965, 0.969, 0.976), dark: rgb(0.010, 0.013, 0.017))
-    static let commandRail = adaptive(light: rgba(1.000, 1.000, 1.000, 0.520), dark: rgba(0.065, 0.071, 0.079, 0.660))
-    static let sidebar = adaptive(light: rgba(1.000, 1.000, 1.000, 0.560), dark: rgba(0.078, 0.086, 0.096, 0.720))
-    static let readerCanvas = adaptive(light: rgb(0.956, 0.962, 0.970), dark: rgb(0.014, 0.017, 0.022))
-    static let header = adaptive(light: rgba(0.988, 0.990, 0.994, 0.740), dark: rgba(0.095, 0.104, 0.116, 0.760))
-    static let inspector = adaptive(light: rgba(0.988, 0.990, 0.994, 0.620), dark: rgba(0.072, 0.080, 0.091, 0.760))
-    static let inspectorResearch = adaptive(light: rgba(0.980, 0.992, 0.986, 0.640), dark: rgba(0.060, 0.079, 0.071, 0.760))
-    static let panel = adaptive(light: rgba(1.000, 1.000, 1.000, 0.600), dark: rgba(0.148, 0.160, 0.178, 0.700))
-    static let tile = adaptive(light: rgba(1.000, 1.000, 1.000, 0.420), dark: rgba(0.196, 0.210, 0.230, 0.620))
+    static let window = adaptive(light: rgba(0.965, 0.969, 0.976, 0.360), dark: rgba(0.010, 0.013, 0.017, 0.500))
+    static let commandRail = adaptive(light: rgba(1.000, 1.000, 1.000, 0.300), dark: rgba(0.065, 0.071, 0.079, 0.460))
+    static let sidebar = adaptive(light: rgba(1.000, 1.000, 1.000, 0.340), dark: rgba(0.078, 0.086, 0.096, 0.520))
+    static let readerCanvas = adaptive(light: rgba(0.956, 0.962, 0.970, 0.760), dark: rgba(0.014, 0.017, 0.022, 0.820))
+    static let header = adaptive(light: rgba(0.988, 0.990, 0.994, 0.440), dark: rgba(0.095, 0.104, 0.116, 0.540))
+    static let inspector = adaptive(light: rgba(0.988, 0.990, 0.994, 0.400), dark: rgba(0.072, 0.080, 0.091, 0.560))
+    static let inspectorResearch = adaptive(light: rgba(0.980, 0.992, 0.986, 0.420), dark: rgba(0.060, 0.079, 0.071, 0.560))
+    static let panel = adaptive(light: rgba(1.000, 1.000, 1.000, 0.340), dark: rgba(0.148, 0.160, 0.178, 0.480))
+    static let tile = adaptive(light: rgba(1.000, 1.000, 1.000, 0.240), dark: rgba(0.196, 0.210, 0.230, 0.400))
     static let accent = adaptive(light: rgb(0.096, 0.557, 0.370), dark: rgb(0.612, 0.920, 0.420))
     static let primaryButton = adaptive(light: rgb(0.000, 0.478, 1.000), dark: rgb(0.914, 0.922, 0.933))
     static let primaryButtonText = adaptive(light: rgb(1.000, 1.000, 1.000), dark: rgb(0.020, 0.021, 0.022))
@@ -25,8 +25,8 @@ enum NativeProTheme {
     static let successSoft = adaptive(light: rgb(0.914, 0.965, 0.937), dark: rgb(0.058, 0.145, 0.075))
 
     static let readerCanvasNSColor = adaptiveNSColor(
-        light: rgb(0.918, 0.918, 0.934),
-        dark: rgb(0.010, 0.013, 0.017)
+        light: rgba(0.918, 0.918, 0.934, 0.900),
+        dark: rgba(0.010, 0.013, 0.017, 0.940)
     )
 
     private typealias RGBA = (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat)

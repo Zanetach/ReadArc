@@ -17,37 +17,45 @@ struct AgentChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 18)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+            VStack(spacing: 0) {
+                header
 
-            agentSwitcher
+                agentSwitcher
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    contextPanel
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        contextPanel
 
-                    if model.chatMessages.isEmpty {
-                        MessageBubble(
-                            message: ChatMessage(
-                                role: .assistant,
-                                text: language.text("chat.initial"),
-                                agent: model.selectedChatAgent,
-                                isStreaming: false
+                        if model.chatMessages.isEmpty {
+                            MessageBubble(
+                                message: ChatMessage(
+                                    role: .assistant,
+                                    text: language.text("chat.initial"),
+                                    agent: model.selectedChatAgent,
+                                    isStreaming: false
+                                )
                             )
-                        )
-                    }
+                        }
 
-                    ForEach(model.chatMessages) { message in
-                        MessageBubble(message: message)
+                        ForEach(model.chatMessages) { message in
+                            MessageBubble(message: message)
+                        }
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
                 }
-                .padding(14)
-            }
+                .scrollContentBackground(.hidden)
 
-            composer
+                composer
+            }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous),
+                fallbackColor: NativeProTheme.sidebar,
+                strokeColor: NativeProTheme.separator.opacity(0.55)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
+        .background(Color.clear)
         .onDisappear {
             stopStreaming()
         }
@@ -57,39 +65,31 @@ struct AgentChatView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            modeSwitcher
-
-            HStack(alignment: .center, spacing: 10) {
-                Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(NativeProTheme.accent)
-                    .frame(width: 30, height: 30)
-                    .readArcGlass(
-                        in: RoundedRectangle(cornerRadius: 9, style: .continuous),
-                        fallbackColor: NativeProTheme.selection.opacity(0.86),
-                        strokeColor: NativeProTheme.accent.opacity(0.18),
-                        tint: NativeProTheme.accent.opacity(0.12)
-                    )
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(language.text("chat.title"))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(NativeProTheme.ink)
-
-                    Text(language.text("chat.subtitle"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(NativeProTheme.muted)
-                        .lineLimit(1)
-                }
-
+        VStack(alignment: .leading, spacing: 13) {
+            HStack {
+                Spacer(minLength: 0)
+                modeSwitcher
                 Spacer(minLength: 0)
             }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(language.text("chat.title"))
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(NativeProTheme.ink)
+
+                Text(language.text("chat.subtitle"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(NativeProTheme.muted)
+                    .lineLimit(2)
+            }
         }
+        .padding(.horizontal, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 13)
     }
 
     private var agentSwitcher: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Picker("Agent", selection: $model.selectedChatAgent) {
                 ForEach(ChatAgentProvider.allCases) { agent in
                     Label(agent.pickerTitle, systemImage: agent.systemImage)
@@ -98,72 +98,64 @@ struct AgentChatView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .frame(maxWidth: 204)
 
-            HStack(spacing: 8) {
-                AgentStatusPill(
-                    agent: model.selectedChatAgent,
-                    availability: availability[model.selectedChatAgent] ?? .checking,
-                    language: language
-                )
-                Spacer(minLength: 0)
-                HStack(spacing: 5) {
-                    Image(systemName: model.hasDocument ? "doc.richtext.fill" : "doc")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("PDF")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(model.hasDocument ? NativeProTheme.success : NativeProTheme.muted)
-                .padding(.horizontal, 8)
-                .frame(height: 24)
-                .readArcGlass(
-                    in: Capsule(),
-                    fallbackColor: model.hasDocument ? NativeProTheme.selection.opacity(0.72) : NativeProTheme.panel.opacity(0.52),
-                    strokeColor: model.hasDocument ? NativeProTheme.success.opacity(0.20) : NativeProTheme.separator.opacity(0.7),
-                    tint: model.hasDocument ? NativeProTheme.success.opacity(0.10) : nil
-                )
-            }
+            Spacer(minLength: 0)
+
+            AgentStatusPill(
+                agent: model.selectedChatAgent,
+                availability: availability[model.selectedChatAgent] ?? .checking,
+                language: language
+            )
         }
-        .padding(12)
-        .readArcGlass(
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous),
-            fallbackColor: NativeProTheme.panel.opacity(0.72),
-            strokeColor: NativeProTheme.separator.opacity(1.2)
-        )
         .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.76),
+            strokeColor: NativeProTheme.separator.opacity(0.58)
+        )
+        .padding(.horizontal, 18)
         .padding(.bottom, 10)
     }
 
     private var contextPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(language.text("chat.context").uppercased())
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(NativeProTheme.muted)
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: model.hasDocument ? "doc.richtext.fill" : "doc.richtext")
+                .font(.system(size: 15, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(model.hasDocument ? NativeProTheme.accent : NativeProTheme.muted)
+                .frame(width: 32, height: 32)
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 9, style: .continuous),
+                    fallbackColor: model.hasDocument ? NativeProTheme.selection.opacity(0.62) : NativeProTheme.panel.opacity(0.58),
+                    strokeColor: model.hasDocument ? NativeProTheme.accent.opacity(0.14) : NativeProTheme.separator.opacity(0.62),
+                    tint: model.hasDocument ? NativeProTheme.accent.opacity(0.08) : nil
+                )
 
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(model.hasDocument ? model.documentTitle : language.text("chat.noPDFContext"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(NativeProTheme.ink)
+                    .lineLimit(2)
 
-                Text(model.hasDocument ? language.text("chat.attached").lowercased() : language.text("chat.empty").lowercased())
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(model.hasDocument ? NativeProTheme.success : NativeProTheme.muted)
+                if model.hasDocument {
+                    Text(String(format: language.text("chat.pages"), model.pageCount, model.pageIndex + 1))
+                        .font(.system(size: 11))
+                        .foregroundStyle(NativeProTheme.muted)
+                        .lineLimit(1)
+                }
             }
 
-            Text(model.hasDocument ? model.documentTitle : language.text("chat.noPDFContext"))
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(NativeProTheme.ink)
-                .lineLimit(2)
-
-            if model.hasDocument {
-                Text(String(format: language.text("chat.pages"), model.pageCount, model.pageIndex + 1))
-                    .font(.system(size: 12))
-                    .foregroundStyle(NativeProTheme.muted)
-            }
+            Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
         .readArcGlass(
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous),
-            fallbackColor: NativeProTheme.panel.opacity(0.82),
-            strokeColor: NativeProTheme.separator
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.76),
+            strokeColor: NativeProTheme.separator.opacity(0.58)
         )
     }
 
@@ -175,7 +167,11 @@ struct AgentChatView: View {
             }
         }
         .padding(14)
-        .background(.clear)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(NativeProTheme.separator)
+                .frame(height: 1)
+        }
     }
 
     private var composerInput: some View {
@@ -189,8 +185,8 @@ struct AgentChatView: View {
             .frame(maxWidth: .infinity)
             .readArcGlass(
                 in: RoundedRectangle(cornerRadius: 14, style: .continuous),
-                fallbackColor: NativeProTheme.panel.opacity(0.92),
-                strokeColor: NativeProTheme.separator,
+                fallbackColor: NativeProTheme.panel.opacity(0.88),
+                strokeColor: NativeProTheme.separator.opacity(0.76),
                 isInteractive: true
             )
     }
@@ -418,9 +414,9 @@ private struct AgentStatusPill: View {
         .frame(height: 24)
         .readArcGlass(
             in: Capsule(),
-            fallbackColor: NativeProTheme.tile.opacity(0.74),
+            fallbackColor: NativeProTheme.tile.opacity(0.72),
             strokeColor: NativeProTheme.separator.opacity(0.65),
-            tint: availability == .available ? NativeProTheme.success.opacity(0.10) : nil
+            tint: availability == .available ? NativeProTheme.accent.opacity(0.06) : nil
         )
         .help("\(agent.title): \(statusText)")
     }
@@ -452,7 +448,7 @@ private struct AgentStatusPill: View {
         case .checking:
             return NativeProTheme.muted
         case .available:
-            return NativeProTheme.success
+            return NativeProTheme.accent
         case .unavailable:
             return NativeProTheme.muted
         }

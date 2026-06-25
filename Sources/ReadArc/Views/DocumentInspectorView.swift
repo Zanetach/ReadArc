@@ -7,44 +7,60 @@ struct DocumentInspectorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 18)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+            VStack(spacing: 0) {
+                header
 
-            currentSectionHeader
+                currentSectionHeader
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if model.hasDocument {
-                        DocumentMetricsPanel(model: model)
-                        SynthesisPanel(model: model)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if model.hasDocument {
+                            DocumentMetricsPanel(model: model)
+                            SynthesisPanel(model: model)
 
-                        switch model.rightPanelMode {
-                        case .focus:
-                            NotesPanel(model: model)
-                        case .research:
-                            researchPanels
-                        case .chat:
-                            EmptyView()
+                            switch model.rightPanelMode {
+                            case .focus:
+                                NotesPanel(model: model)
+                            case .research:
+                                researchPanels
+                            case .chat:
+                                EmptyView()
+                            }
+
+                            FileLocationPanel(model: model)
+                        } else {
+                            emptyState
                         }
-
-                        FileLocationPanel(model: model)
-                    } else {
-                        emptyState
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
                 }
-                .padding(14)
+                .scrollContentBackground(.hidden)
             }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous),
+                fallbackColor: NativeProTheme.sidebar,
+                strokeColor: NativeProTheme.separator.opacity(0.55)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
+        .background(Color.clear)
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            modeSwitcher
+        VStack(alignment: .leading, spacing: 13) {
+            HStack {
+                Spacer(minLength: 0)
+                modeSwitcher
+                Spacer(minLength: 0)
+            }
+
             headerText
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 13)
     }
 
     private var headerText: some View {
@@ -58,7 +74,7 @@ struct DocumentInspectorView: View {
             Text(model.rightPanelMode.subtitle(language: language))
                 .font(.system(size: 11))
                 .foregroundStyle(NativeProTheme.muted)
-                .lineLimit(1)
+                .lineLimit(2)
                 .minimumScaleFactor(0.82)
         }
         .frame(minWidth: 88, maxWidth: .infinity, alignment: .leading)
@@ -73,9 +89,9 @@ struct DocumentInspectorView: View {
                 .frame(width: 26, height: 26)
                 .readArcGlass(
                     in: RoundedRectangle(cornerRadius: 7, style: .continuous),
-                    fallbackColor: NativeProTheme.selection.opacity(0.82),
-                    strokeColor: NativeProTheme.accent.opacity(0.18),
-                    tint: NativeProTheme.accent.opacity(0.12)
+                    fallbackColor: NativeProTheme.selection.opacity(0.68),
+                    strokeColor: NativeProTheme.accent.opacity(0.15),
+                    tint: NativeProTheme.accent.opacity(0.08)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -92,15 +108,15 @@ struct DocumentInspectorView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
-        .readArcGlass(
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous),
-            fallbackColor: NativeProTheme.tile.opacity(0.48),
-            strokeColor: NativeProTheme.separator.opacity(0.55)
-        )
         .padding(.horizontal, 14)
-        .padding(.bottom, 8)
+        .padding(.vertical, 11)
+        .readArcGlass(
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.76),
+            strokeColor: NativeProTheme.separator.opacity(0.58)
+        )
+        .padding(.horizontal, 18)
+        .padding(.bottom, 10)
     }
 
     @ViewBuilder
@@ -389,8 +405,8 @@ private struct InspectorPanel<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .readArcGlass(
             in: RoundedRectangle(cornerRadius: 14, style: .continuous),
-            fallbackColor: NativeProTheme.panel.opacity(0.82),
-            strokeColor: NativeProTheme.separator
+            fallbackColor: NativeProTheme.panel.opacity(0.76),
+            strokeColor: NativeProTheme.separator.opacity(0.70)
         )
     }
 }
@@ -414,7 +430,7 @@ private struct MetricTile: View {
         .padding(8)
         .readArcGlass(
             in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-            fallbackColor: NativeProTheme.tile.opacity(0.74),
+            fallbackColor: NativeProTheme.tile.opacity(0.70),
             strokeColor: NativeProTheme.separator.opacity(0.55)
         )
     }
@@ -435,9 +451,9 @@ private struct TagLabel: View {
             .frame(height: 19)
             .readArcGlass(
                 in: Capsule(),
-                fallbackColor: NativeProTheme.selection.opacity(0.86),
-                strokeColor: NativeProTheme.accent.opacity(0.20),
-                tint: NativeProTheme.accent.opacity(0.10)
+                fallbackColor: NativeProTheme.selection.opacity(0.70),
+                strokeColor: NativeProTheme.accent.opacity(0.16),
+                tint: NativeProTheme.accent.opacity(0.08)
             )
     }
 }

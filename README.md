@@ -27,8 +27,8 @@ Current public artifact:
 
 | Item | Value |
 | --- | --- |
-| Release | `v0.2.6` |
-| Artifact | `ReadArc-0.2.6-macOS-arm64.dmg` |
+| Release | `v0.2.7` |
+| Artifact | `ReadArc-0.2.7-macOS-arm64.dmg` |
 | System | macOS 14 or later |
 | CPU | Apple Silicon |
 | Signing | Ad-hoc signed, not notarized |
@@ -105,13 +105,13 @@ swift build -c release
 Create a local Apple Silicon DMG:
 
 ```bash
-./script/release_github.sh --version 0.2.6 --ad-hoc --skip-notary --format dmg
+./script/release_github.sh --version 0.2.7 --ad-hoc --skip-notary --format dmg
 ```
 
 Publish a GitHub Release with the ad-hoc Apple Silicon DMG:
 
 ```bash
-./script/release_github.sh --version 0.2.6 --publish --ready --ad-hoc --skip-notary --format dmg
+./script/release_github.sh --version 0.2.7 --publish --ready --ad-hoc --skip-notary --format dmg
 ```
 
 Create a Developer ID signed and notarized release when Apple credentials are configured:
@@ -119,7 +119,7 @@ Create a Developer ID signed and notarized release when Apple credentials are co
 ```bash
 READARC_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 READARC_NOTARY_PROFILE="readarc-notary" \
-./script/release_github.sh --version 0.2.6 --publish --ready --format dmg
+./script/release_github.sh --version 0.2.7 --publish --ready --format dmg
 ```
 
 Store notarization credentials once:

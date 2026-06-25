@@ -28,14 +28,17 @@ private struct ReaderCanvasBackground: View {
 
     var body: some View {
         ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+
             NativeProTheme.readerCanvas
-                .opacity(isFocusMode ? 0.82 : 1)
+                .opacity(isFocusMode ? 0.58 : 0.66)
 
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.14),
+                    Color.white.opacity(0.10),
                     Color.clear,
-                    NativeProTheme.accent.opacity(0.035)
+                    NativeProTheme.accent.opacity(0.028)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing

@@ -56,7 +56,7 @@ struct SidebarView: View {
             }
             .readArcGlass(
                 in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                fallbackColor: NativeProTheme.sidebar.opacity(0.82),
+                fallbackColor: NativeProTheme.sidebar,
                 strokeColor: NativeProTheme.separator.opacity(0.55)
             )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -93,8 +93,8 @@ struct SidebarView: View {
             .frame(height: 28)
             .readArcGlass(
                 in: RoundedRectangle(cornerRadius: 7, style: .continuous),
-                fallbackColor: NativeProTheme.panel.opacity(0.68),
-                strokeColor: NativeProTheme.separator
+                fallbackColor: NativeProTheme.panel.opacity(0.86),
+                strokeColor: NativeProTheme.separator.opacity(0.72)
             )
         }
         .padding(.horizontal, 16)
@@ -257,10 +257,10 @@ private struct CollectionChip: View {
             .frame(height: 24)
             .readArcGlass(
                 in: Capsule(),
-                fallbackColor: isActive ? NativeProTheme.selection.opacity(0.86) : NativeProTheme.panel.opacity(0.45),
-                strokeColor: isActive ? NativeProTheme.accent.opacity(0.24) : NativeProTheme.separator,
+                fallbackColor: isActive ? NativeProTheme.selection.opacity(0.72) : NativeProTheme.panel.opacity(0.52),
+                strokeColor: isActive ? NativeProTheme.accent.opacity(0.18) : NativeProTheme.separator.opacity(0.70),
                 isInteractive: true,
-                tint: isActive ? NativeProTheme.accent.opacity(0.12) : nil
+                tint: isActive ? NativeProTheme.accent.opacity(0.08) : nil
             )
     }
 }
@@ -269,7 +269,7 @@ private struct PDFMiniIcon: View {
     var body: some View {
         Text("PDF")
             .font(.system(size: 9, weight: .medium, design: .monospaced))
-            .foregroundStyle(NativeProTheme.accent)
+            .foregroundStyle(NativeProTheme.muted)
             .frame(width: 22, height: 28)
             .background(NativeProTheme.tile.opacity(0.86), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
             .overlay {
