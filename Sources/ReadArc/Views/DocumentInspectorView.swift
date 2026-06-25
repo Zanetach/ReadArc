@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct DocumentInspectorView: View {
@@ -6,128 +7,69 @@ struct DocumentInspectorView: View {
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { proxy in
+            let metrics = InspectorLayoutMetrics(size: proxy.size)
+
             VStack(spacing: 0) {
-                header
+                VStack(spacing: 0) {
+                    header(metrics: metrics)
 
-                currentSectionHeader
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
+                            if model.hasDocument {
+                                DocumentMetricsPanel(model: model)
+                                SynthesisPanel(model: model)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if model.hasDocument {
-                            DocumentMetricsPanel(model: model)
-                            SynthesisPanel(model: model)
+                                switch model.rightPanelMode {
+                                case .focus:
+                                    NotesPanel(model: model)
+                                case .research:
+                                    researchPanels
+                                case .chat:
+                                    EmptyView()
+                                }
 
-                            switch model.rightPanelMode {
-                            case .focus:
-                                NotesPanel(model: model)
-                            case .research:
-                                researchPanels
-                            case .chat:
-                                EmptyView()
+                                if model.rightPanelMode == .research {
+                                    SourceEvidencePanel(model: model)
+                                } else {
+                                    FileLocationPanel(model: model)
+                                }
+                            } else {
+                                emptyState
                             }
-
-                            FileLocationPanel(model: model)
-                        } else {
-                            emptyState
                         }
+                        .padding(.horizontal, metrics.contentPadding)
+                        .padding(.bottom, metrics.contentPadding)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .scrollContentBackground(.hidden)
                 }
-                .scrollContentBackground(.hidden)
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: metrics.outerCornerRadius, style: .continuous),
+                    fallbackColor: NativeProTheme.sidebar.opacity(0.98),
+                    strokeColor: NativeProTheme.separator.opacity(0.78)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: metrics.outerCornerRadius, style: .continuous))
+                .shadow(color: NativeProTheme.surfaceShadow.opacity(0.66), radius: metrics.outerShadowRadius, x: 0, y: metrics.outerShadowY)
             }
-            .readArcGlass(
-                in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                fallbackColor: NativeProTheme.sidebar,
-                strokeColor: NativeProTheme.separator.opacity(0.55)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .environment(\.inspectorLayoutMetrics, metrics)
         }
         .background(Color.clear)
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            HStack {
-                Spacer(minLength: 0)
-                modeSwitcher
-                Spacer(minLength: 0)
-            }
-
-            headerText
+    private func header(metrics: InspectorLayoutMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            modeSwitcher
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 18)
-        .padding(.top, 16)
-        .padding(.bottom, 13)
-    }
-
-    private var headerText: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(model.rightPanelMode.title(language: language))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(NativeProTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-
-            Text(model.rightPanelMode.subtitle(language: language))
-                .font(.system(size: 11))
-                .foregroundStyle(NativeProTheme.muted)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
-        }
-        .frame(minWidth: 88, maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var currentSectionHeader: some View {
-        HStack(spacing: 9) {
-            Image(systemName: sectionIcon)
-                .font(.system(size: 13, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(NativeProTheme.accent)
-                .frame(width: 26, height: 26)
-                .readArcGlass(
-                    in: RoundedRectangle(cornerRadius: 7, style: .continuous),
-                    fallbackColor: NativeProTheme.selection.opacity(0.68),
-                    strokeColor: NativeProTheme.accent.opacity(0.15),
-                    tint: NativeProTheme.accent.opacity(0.08)
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(sectionTitle)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NativeProTheme.ink)
-
-                Text(sectionSummary)
-                    .font(.system(size: 11))
-                    .foregroundStyle(NativeProTheme.muted)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .readArcGlass(
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-            fallbackColor: NativeProTheme.panel.opacity(0.76),
-            strokeColor: NativeProTheme.separator.opacity(0.58)
-        )
-        .padding(.horizontal, 18)
-        .padding(.bottom, 10)
+        .padding(.horizontal, metrics.headerHorizontalPadding)
+        .padding(.top, metrics.headerTopPadding)
+        .padding(.bottom, metrics.headerBottomPadding)
     }
 
     @ViewBuilder
     private var researchPanels: some View {
-        if model.inspectorTab == .outline {
-            OutlinePanel(model: model)
-            SearchMatchesPanel(model: model)
-        } else {
-            SearchMatchesPanel(model: model)
-            OutlinePanel(model: model)
-        }
+        SearchMatchesPanel(model: model)
+        OutlinePanel(model: model)
     }
 
     private var emptyState: some View {
@@ -138,51 +80,73 @@ struct DocumentInspectorView: View {
         )
         .frame(maxWidth: .infinity, minHeight: 260)
     }
+}
 
-    private var sectionIcon: String {
-        switch model.rightPanelMode {
-        case .focus:
-            return RightPanelMode.focus.systemImage
-        case .research:
-            return model.inspectorTab.systemImage
-        case .chat:
-            return RightPanelMode.chat.systemImage
-        }
+private struct InspectorLayoutMetrics: Equatable {
+    let width: CGFloat
+    let height: CGFloat
+
+    init(size: CGSize) {
+        self.width = size.width
+        self.height = size.height
     }
 
-    private var sectionTitle: String {
-        switch model.rightPanelMode {
-        case .focus:
-            return language.text("panel.focus.current")
-        case .research:
-            return model.inspectorTab.title(language: language)
-        case .chat:
-            return RightPanelMode.chat.title(language: language)
-        }
+    private var scale: CGFloat {
+        min(max((width - 260) / 160, 0), 1)
     }
 
-    private var sectionSummary: String {
-        switch model.rightPanelMode {
-        case .focus:
-            return language.text("panel.focus.summary")
-        case .research:
-            return model.inspectorTab.summary(language: language)
-        case .chat:
-            return RightPanelMode.chat.subtitle(language: language)
-        }
+    var outerCornerRadius: CGFloat { 20 + scale * 6 }
+    var outerShadowRadius: CGFloat { 16 + scale * 8 }
+    var outerShadowY: CGFloat { 8 + scale * 6 }
+    var contentPadding: CGFloat { 12 + scale * 8 }
+    var headerHorizontalPadding: CGFloat { contentPadding + 2 }
+    var headerTopPadding: CGFloat { 14 + scale * 10 }
+    var headerBottomPadding: CGFloat { 8 + scale * 6 }
+    var sectionSpacing: CGFloat { 10 + scale * 4 }
+    var cardPadding: CGFloat { 12 + scale * 4 }
+    var cardSpacing: CGFloat { 8 + scale * 2 }
+    var cardCornerRadius: CGFloat { 14 + scale * 4 }
+    var iconFont: CGFloat { 14 + scale * 2 }
+    var titleFont: CGFloat { 14 + scale * 2 }
+    var trailingFont: CGFloat { 11 + scale * 2 }
+    var bodyFont: CGFloat { 12 + scale * 1.5 }
+    var captionFont: CGFloat { 10.5 + scale * 1.5 }
+    var metricGridSpacing: CGFloat { 8 + scale * 4 }
+    var metricColumnCount: Int { width < 370 ? 2 : 4 }
+    var metricTileHeight: CGFloat { metricColumnCount == 2 ? 82 + scale * 10 : 88 + scale * 16 }
+    var metricIconFont: CGFloat { 19 + scale * 5 }
+    var metricValueFont: CGFloat { 15 + scale * 2 }
+    var metricLabelFont: CGFloat { 10.5 + scale * 1 }
+    var tagHeight: CGFloat { 18 + scale * 1 }
+    var tagFont: CGFloat { 9.5 + scale * 0.5 }
+    var badgeHeight: CGFloat { 22 + scale * 2 }
+}
+
+private struct InspectorLayoutMetricsKey: EnvironmentKey {
+    static let defaultValue = InspectorLayoutMetrics(size: CGSize(width: 360, height: 700))
+}
+
+private extension EnvironmentValues {
+    var inspectorLayoutMetrics: InspectorLayoutMetrics {
+        get { self[InspectorLayoutMetricsKey.self] }
+        set { self[InspectorLayoutMetricsKey.self] = newValue }
     }
 }
 
 private struct DocumentMetricsPanel: View {
     @ObservedObject var model: ReaderModel
     @Environment(\.appLanguage) private var language
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 7), count: 4), spacing: 7) {
-            MetricTile(value: "\(model.pageCount)", label: language.text("inspector.metric.pages"))
-            MetricTile(value: model.searchLabel, label: language.text("inspector.metric.matches"))
-            MetricTile(value: "\(model.outlineItems.count)", label: language.text("inspector.metric.outline"))
-            MetricTile(value: model.fileSizeLabel, label: language.text("inspector.metric.size"))
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: metrics.metricGridSpacing), count: metrics.metricColumnCount),
+            spacing: metrics.metricGridSpacing
+        ) {
+            MetricTile(systemImage: "doc.text", value: "\(model.pageCount)", label: language.text("inspector.metric.pages"))
+            MetricTile(systemImage: "magnifyingglass", value: model.searchLabel, label: language.text("inspector.metric.matches"))
+            MetricTile(systemImage: "list.bullet", value: "\(model.outlineItems.count)", label: language.text("inspector.metric.outline"))
+            MetricTile(systemImage: "doc", value: model.fileSizeLabel, label: language.text("inspector.metric.size"))
         }
     }
 }
@@ -190,27 +154,24 @@ private struct DocumentMetricsPanel: View {
 private struct SynthesisPanel: View {
     @ObservedObject var model: ReaderModel
     @Environment(\.appLanguage) private var language
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
     var body: some View {
-        InspectorPanel(title: language.text("inspector.summary"), trailing: model.hasDocument ? String(format: language.text("inspector.page"), model.pageIndex + 1) : nil) {
-            VStack(alignment: .leading, spacing: 7) {
-                Text(model.hasDocument ? currentHeadline : language.text("inspector.summary.empty.title"))
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(NativeProTheme.ink)
-
-                Text(model.hasDocument ? currentSummary : language.text("inspector.summary.empty.body"))
-                    .font(.system(size: 12))
-                    .foregroundStyle(NativeProTheme.ink.opacity(0.76))
-                    .lineLimit(2)
-
-                if model.hasDocument {
-                    HStack(spacing: 6) {
-                        TagLabel(String(format: language.text("inspector.page"), model.pageIndex + 1))
-                        TagLabel(model.rightPanelMode.title(language: language).lowercased())
-                    }
-                }
+        InspectorPanel(
+            title: language.text("inspector.summary"),
+            systemImage: "sparkles",
+            trailing: "Copy",
+            trailingAction: {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(currentSummary, forType: .string)
             }
-        }
+        ) {
+            Text(model.hasDocument ? currentSummary : language.text("inspector.summary.empty.body"))
+                .font(.system(size: metrics.bodyFont, weight: .semibold))
+                .foregroundStyle(NativeProTheme.ink.opacity(0.84))
+                .lineLimit(metrics.width < 330 ? 4 : 3)
+                .fixedSize(horizontal: false, vertical: true)
+            }
     }
 
     private var currentHeadline: String {
@@ -238,44 +199,54 @@ private struct SynthesisPanel: View {
 private struct SearchMatchesPanel: View {
     @ObservedObject var model: ReaderModel
     @Environment(\.appLanguage) private var language
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
     var body: some View {
-        InspectorPanel(title: language.text("inspector.searchMatches")) {
+        InspectorPanel(
+            title: "\(language.text("inspector.searchMatches")) (\(model.searchResults.count))",
+            systemImage: "list.bullet",
+            trailing: "View all",
+            trailingAction: {
+            model.showResearch(tab: .search)
+            }
+        ) {
             if model.isSearching {
                 Text(language.text("inspector.search.searching"))
-                    .font(.caption)
+                    .font(.system(size: metrics.captionFont, weight: .medium))
                     .foregroundStyle(NativeProTheme.muted)
             } else if model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(language.text("inspector.search.empty"))
-                    .font(.caption)
+                    .font(.system(size: metrics.captionFont, weight: .medium))
                     .foregroundStyle(NativeProTheme.muted)
             } else if model.searchMatches.isEmpty {
                 Text(String(format: language.text("inspector.search.noResults"), model.searchText))
-                    .font(.caption)
+                    .font(.system(size: metrics.captionFont, weight: .medium))
                     .foregroundStyle(NativeProTheme.muted)
             } else {
                 VStack(spacing: 8) {
-                    ForEach(model.searchMatches.prefix(8)) { match in
+                    ForEach(model.searchMatches.prefix(3)) { match in
                         Button {
                             model.selectSearchResult(at: match.index)
                         } label: {
-                            VStack(alignment: .leading, spacing: 4) {
+                            HStack(alignment: .top, spacing: 12) {
                                 Text(match.pageLabel)
-                                    .font(.caption.weight(.semibold))
-                                Text(match.excerpt)
-                                    .font(.caption)
-                                    .foregroundStyle(NativeProTheme.muted)
-                                    .lineLimit(3)
+                                    .font(.system(size: metrics.captionFont, weight: .semibold))
+                                    .foregroundStyle(NativeProTheme.ink)
+                                    .padding(.horizontal, 8)
+                                    .frame(height: metrics.badgeHeight)
+                                    .readArcGlass(
+                                        in: Capsule(),
+                                        fallbackColor: NativeProTheme.selection.opacity(0.74),
+                                        strokeColor: NativeProTheme.separator.opacity(0.30)
+                                    )
+
+                                highlightedExcerpt(match.excerpt)
+                                    .font(.system(size: metrics.bodyFont, weight: .semibold))
+                                    .foregroundStyle(NativeProTheme.ink.opacity(0.84))
+                                    .lineLimit(2)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(9)
-                            .readArcGlass(
-                                in: RoundedRectangle(cornerRadius: 7),
-                                fallbackColor: matchBackground(for: match),
-                                strokeColor: match.index == model.selectedSearchIndex ? NativeProTheme.searchBorder.opacity(0.35) : .clear,
-                                isInteractive: true,
-                                tint: match.index == model.selectedSearchIndex ? NativeProTheme.searchBorder.opacity(0.10) : nil
-                            )
+                            .padding(.vertical, 2)
                         }
                         .buttonStyle(.plain)
                     }
@@ -284,26 +255,32 @@ private struct SearchMatchesPanel: View {
         }
     }
 
-    private func matchBackground(for match: SearchMatch) -> Color {
-        match.index == model.selectedSearchIndex
-            ? NativeProTheme.searchHit
-            : NativeProTheme.panel
+    private func highlightedExcerpt(_ excerpt: String) -> Text {
+        Text(excerpt)
     }
 }
 
 private struct OutlinePanel: View {
     @ObservedObject var model: ReaderModel
     @Environment(\.appLanguage) private var language
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
     var body: some View {
-        InspectorPanel(title: language.text("inspector.outline")) {
+        InspectorPanel(
+            title: "\(language.text("inspector.outline")) (\(model.outlineItems.count))",
+            systemImage: "circle",
+            trailing: "View all",
+            trailingAction: {
+            model.showResearch(tab: .outline)
+            }
+        ) {
             if model.outlineItems.isEmpty {
                 Text(language.text("inspector.outline.empty"))
-                    .font(.caption)
+                    .font(.system(size: metrics.captionFont, weight: .medium))
                     .foregroundStyle(NativeProTheme.muted)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(model.outlineItems) { item in
+                    ForEach(model.outlineItems.prefix(6)) { item in
                         Button {
                             model.goToOutlineItem(item)
                         } label: {
@@ -312,12 +289,20 @@ private struct OutlinePanel: View {
                                     .lineLimit(1)
                                 Spacer()
                                 Text(item.pageLabel)
-                                    .font(.caption.monospacedDigit())
+                                    .font(.system(size: metrics.captionFont, weight: .medium, design: .monospaced))
                                     .foregroundStyle(NativeProTheme.muted)
                             }
-                            .font(.caption)
-                            .padding(.leading, CGFloat(item.depth) * 12)
-                            .padding(.vertical, 6)
+                            .font(.system(size: metrics.bodyFont, weight: (item.pageIndex ?? -1) == model.pageIndex ? .semibold : .medium))
+                            .foregroundStyle((item.pageIndex ?? -1) == model.pageIndex ? NativeProTheme.accent : NativeProTheme.ink.opacity(0.86))
+                            .padding(.leading, CGFloat(item.depth) * 14)
+                            .padding(.vertical, 5)
+                            .padding(.horizontal, (item.pageIndex ?? -1) == model.pageIndex ? 8 : 0)
+                            .background {
+                                if (item.pageIndex ?? -1) == model.pageIndex {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(NativeProTheme.selection.opacity(0.88))
+                                }
+                            }
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -330,19 +315,60 @@ private struct OutlinePanel: View {
     }
 }
 
+private struct SourceEvidencePanel: View {
+    @ObservedObject var model: ReaderModel
+
+    var body: some View {
+        InspectorPanel(title: "Source Evidence", systemImage: "doc.badge.clock", trailing: "\(sourcePages.count) selected") {
+            HStack(spacing: 8) {
+                ForEach(sourcePages, id: \.self) { page in
+                    Button {
+                        model.send(.goToPage(page - 1))
+                    } label: {
+                        TagLabel("Page \(page)")
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button {
+                    model.showResearch(tab: .search)
+                } label: {
+                    TagLabel("+")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var sourcePages: [Int] {
+        var pages: [Int] = []
+        for match in model.searchMatches.prefix(3) {
+            let page = match.pageIndex + 1
+            if !pages.contains(page) {
+                pages.append(page)
+            }
+        }
+        if pages.isEmpty {
+            return [max(model.pageIndex + 1, 1)]
+        }
+        return pages
+    }
+}
+
 private struct FileLocationPanel: View {
     @ObservedObject var model: ReaderModel
     @Environment(\.appLanguage) private var language
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
     var body: some View {
         InspectorPanel(title: language.text("inspector.file")) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(model.documentTitle)
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: metrics.captionFont, weight: .semibold))
                     .lineLimit(2)
 
                 Text(model.documentLocation)
-                    .font(.caption)
+                    .font(.system(size: metrics.captionFont, weight: .medium))
                     .foregroundStyle(NativeProTheme.muted)
                     .lineLimit(3)
                     .textSelection(.enabled)
@@ -354,16 +380,17 @@ private struct FileLocationPanel: View {
 private struct NotesPanel: View {
     @ObservedObject var model: ReaderModel
     @Environment(\.appLanguage) private var language
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
     var body: some View {
         InspectorPanel(title: language.text("inspector.notes")) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(String(format: language.text("inspector.page"), max(model.pageIndex + 1, 1)))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: metrics.captionFont, weight: .semibold))
                     .foregroundStyle(NativeProTheme.ink)
 
                 Text(language.text("inspector.note.placeholder"))
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.captionFont, weight: .medium))
                     .foregroundStyle(NativeProTheme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -373,71 +400,110 @@ private struct NotesPanel: View {
 
 private struct InspectorPanel<Content: View>: View {
     let title: String
+    var systemImage: String?
     var trailing: String?
+    var trailingAction: (() -> Void)?
     @ViewBuilder var content: Content
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
-    init(title: String, trailing: String? = nil, @ViewBuilder content: () -> Content) {
+    init(
+        title: String,
+        systemImage: String? = nil,
+        trailing: String? = nil,
+        trailingAction: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
         self.title = title
+        self.systemImage = systemImage
         self.trailing = trailing
+        self.trailingAction = trailingAction
         self.content = content()
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: metrics.cardSpacing) {
             HStack {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: metrics.iconFont, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(systemImage == "sparkles" ? NativeProTheme.success : NativeProTheme.accent)
+                }
+
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(NativeProTheme.muted)
-                    .textCase(.uppercase)
+                    .font(.system(size: metrics.titleFont, weight: .semibold))
+                    .foregroundStyle(NativeProTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
 
                 Spacer(minLength: 0)
 
                 if let trailing {
-                    Text(trailing)
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(NativeProTheme.muted)
+                    if let trailingAction {
+                        Button(action: trailingAction) {
+                            Text(trailing)
+                                .font(.system(size: metrics.trailingFont, weight: .semibold))
+                                .foregroundStyle(trailing == "Copy" ? NativeProTheme.ink.opacity(0.72) : NativeProTheme.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .help(trailing)
+                    } else {
+                        Text(trailing)
+                            .font(.system(size: metrics.trailingFont, weight: .semibold))
+                            .foregroundStyle(trailing == "Copy" ? NativeProTheme.ink.opacity(0.72) : NativeProTheme.accent)
+                    }
                 }
             }
 
             content
         }
-        .padding(12)
+        .padding(metrics.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .readArcGlass(
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous),
-            fallbackColor: NativeProTheme.panel.opacity(0.76),
-            strokeColor: NativeProTheme.separator.opacity(0.70)
+            in: RoundedRectangle(cornerRadius: metrics.cardCornerRadius, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.82),
+            strokeColor: NativeProTheme.separator.opacity(0.64)
         )
     }
 }
 
 private struct MetricTile: View {
+    let systemImage: String
     let value: String
     let label: String
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(spacing: metrics.width < 330 ? 5 : 7) {
+            Image(systemName: systemImage)
+                .font(.system(size: metrics.metricIconFont, weight: .regular))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(NativeProTheme.accent)
+
             Text(value)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .font(.system(size: metrics.metricValueFont, weight: .semibold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.62)
 
             Text(label)
-                .font(.system(size: 10))
-                .foregroundStyle(NativeProTheme.muted)
+                .font(.system(size: metrics.metricLabelFont, weight: .semibold))
+                .foregroundStyle(NativeProTheme.ink.opacity(0.78))
+                .lineLimit(1)
+                .minimumScaleFactor(0.76)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(8)
+        .frame(maxWidth: .infinity)
+        .frame(height: metrics.metricTileHeight)
         .readArcGlass(
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-            fallbackColor: NativeProTheme.tile.opacity(0.70),
-            strokeColor: NativeProTheme.separator.opacity(0.55)
+            in: RoundedRectangle(cornerRadius: metrics.cardCornerRadius - 2, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.76),
+            strokeColor: NativeProTheme.separator.opacity(0.56)
         )
     }
 }
 
 private struct TagLabel: View {
     let title: String
+    @Environment(\.inspectorLayoutMetrics) private var metrics
 
     init(_ title: String) {
         self.title = title
@@ -445,10 +511,10 @@ private struct TagLabel: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: metrics.tagFont, weight: .semibold))
             .foregroundStyle(NativeProTheme.accent)
-            .padding(.horizontal, 7)
-            .frame(height: 19)
+            .padding(.horizontal, metrics.width < 330 ? 6 : 7)
+            .frame(height: metrics.tagHeight)
             .readArcGlass(
                 in: Capsule(),
                 fallbackColor: NativeProTheme.selection.opacity(0.70),

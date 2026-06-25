@@ -11,8 +11,46 @@ struct ContentView: View {
     @Environment(\.appLanguage) private var language
 
     var body: some View {
+        Group {
+            if ReferencePreviewMode.isEnabled {
+                ReferencePreviewView()
+            } else {
+                liveReaderBody
+            }
+        }
+        .ignoresSafeArea(.container, edges: .top)
+        .dropDestination(for: URL.self) { urls, _ in
+            openDroppedPDF(from: urls)
+        } isTargeted: { isTargeted in
+            isDropTargeted = isTargeted
+        }
+        .overlay {
+            if isDropTargeted {
+                DropTargetOverlay()
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if !ReferencePreviewMode.isEnabled {
+                WindowResizeGrip()
+            }
+        }
+        .tint(NativeProTheme.accent)
+        .background {
+            NativeProTheme.window
+        }
+        .alert("Unable to Open PDF", isPresented: errorBinding) {
+            Button("OK") {
+                model.errorMessage = nil
+            }
+        } message: {
+            Text(model.errorMessage ?? "")
+        }
+    }
+
+    private var liveReaderBody: some View {
         GeometryReader { proxy in
-            let layout = ResponsiveReaderLayout(width: proxy.size.width)
+            let layout = ResponsiveReaderLayout(width: proxy.size.width, height: proxy.size.height)
+            let shellInset: CGFloat = 0
             let leftSidebarVisible = (layout.showsSidebar && model.isSidebarVisible) || model.isLibraryOverlayVisible
             let leftSidebarWidth = layout.leftSidebarWidth(
                 preferredWidth: preferredLeftSidebarWidth,
@@ -25,95 +63,81 @@ struct ContentView: View {
                 libraryOverlayVisible: model.isLibraryOverlayVisible
             )
 
-            VStack(spacing: 0) {
-                ReaderToolbar(model: model)
+            ZStack {
+                ReadArcAmbientBackground()
 
-                HStack(spacing: 0) {
-                    CommandRailView(model: model, usesSidebarCollapse: layout.showsSidebar)
-                        .frame(width: layout.railWidth)
+                VStack(spacing: 0) {
+                    ReaderToolbar(model: model)
 
-                    if leftSidebarVisible {
-                        ZStack(alignment: .trailing) {
-                            leftSidebar
-                                .frame(width: leftSidebarWidth)
+                    HStack(spacing: layout.contentSpacing) {
+                        CommandRailView(model: model, usesSidebarCollapse: layout.showsSidebar)
+                            .frame(width: layout.railWidth)
 
-                            SidebarResizeHandle(
-                                isActive: leftSidebarDragStartWidth != nil,
-                                onChanged: { translation in
-                                    resizeLeftSidebar(
-                                        translation: translation,
-                                        currentWidth: leftSidebarWidth,
-                                        layout: layout
-                                    )
-                                },
-                                onEnded: {
-                                    leftSidebarDragStartWidth = nil
-                                }
-                            )
-                        }
-                        .frame(width: leftSidebarWidth)
+                        if leftSidebarVisible {
+                            ZStack(alignment: .trailing) {
+                                leftSidebar
+                                    .frame(width: leftSidebarWidth)
+
+                                SidebarResizeHandle(
+                                    isActive: leftSidebarDragStartWidth != nil,
+                                    onChanged: { translation in
+                                        resizeLeftSidebar(
+                                            translation: translation,
+                                            currentWidth: leftSidebarWidth,
+                                            layout: layout
+                                        )
+                                    },
+                                    onEnded: {
+                                        leftSidebarDragStartWidth = nil
+                                    }
+                                )
+                            }
+                            .frame(width: leftSidebarWidth)
                             .transition(.move(edge: .leading).combined(with: .opacity))
-                    }
-
-                    DetailView(model: model)
-                        .frame(minWidth: 0, maxWidth: .infinity)
-
-                    if model.isInspectorVisible {
-                        ZStack(alignment: .leading) {
-                            rightPanel
-                                .frame(width: rightPanelWidth)
-
-                            RightPanelResizeHandle(
-                                isActive: rightPanelDragStartWidth != nil,
-                                onChanged: { translation in
-                                    resizeRightPanel(
-                                        translation: translation,
-                                        currentWidth: rightPanelWidth,
-                                        layout: layout
-                                    )
-                                },
-                                onEnded: {
-                                    rightPanelDragStartWidth = nil
-                                }
-                            )
                         }
-                        .frame(width: rightPanelWidth)
+
+                        DetailView(model: model)
+                            .frame(minWidth: 0, maxWidth: .infinity)
+
+                        if model.isInspectorVisible {
+                            ZStack(alignment: .leading) {
+                                rightPanel
+                                    .frame(width: rightPanelWidth)
+
+                                RightPanelResizeHandle(
+                                    isActive: rightPanelDragStartWidth != nil,
+                                    onChanged: { translation in
+                                        resizeRightPanel(
+                                            translation: translation,
+                                            currentWidth: rightPanelWidth,
+                                            layout: layout
+                                        )
+                                    },
+                                    onEnded: {
+                                        rightPanelDragStartWidth = nil
+                                    }
+                                )
+                            }
+                            .frame(width: rightPanelWidth)
                             .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
                     }
+                    .padding(.leading, layout.contentLeadingPadding)
+                    .padding(.trailing, layout.contentTrailingPadding)
+                    .padding(.bottom, layout.contentBottomPadding)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: shellInset == 0 ? 0 : 22, style: .continuous),
+                    fallbackColor: NativeProTheme.window.opacity(0.96),
+                    strokeColor: NativeProTheme.separator.opacity(0.70),
+                    fallbackStrokeWidth: shellInset == 0 ? 0 : 1
+                )
+                .clipShape(RoundedRectangle(cornerRadius: shellInset == 0 ? 0 : 22, style: .continuous))
+                .shadow(color: .black.opacity(shellInset == 0 ? 0 : 0.14), radius: 20, x: 0, y: 14)
+                .padding(shellInset)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                WindowGlassBackground()
-                NativeProTheme.window
-            }
-        }
-        .ignoresSafeArea(.container, edges: .top)
-        .animation(.easeInOut(duration: 0.16), value: model.isInspectorVisible)
-        .animation(.easeInOut(duration: 0.16), value: model.isSidebarVisible)
-        .animation(.easeInOut(duration: 0.16), value: model.isLibraryOverlayVisible)
-        .animation(.easeInOut(duration: 0.16), value: model.rightPanelMode)
-        .dropDestination(for: URL.self) { urls, _ in
-            openDroppedPDF(from: urls)
-        } isTargeted: { isTargeted in
-            isDropTargeted = isTargeted
-        }
-        .overlay {
-            if isDropTargeted {
-                DropTargetOverlay()
-            }
-        }
-        .tint(NativeProTheme.accent)
-        .background {
-            WindowGlassBackground()
-            NativeProTheme.window
-        }
-        .alert("Unable to Open PDF", isPresented: errorBinding) {
-            Button("OK") {
-                model.errorMessage = nil
-            }
-        } message: {
-            Text(model.errorMessage ?? "")
         }
     }
 
@@ -142,12 +166,12 @@ struct ContentView: View {
                 case .chat:
                     AgentChatView(
                         model: model,
-                        modeSwitcher: AnyView(RightPanelModeSwitcher(model: model))
+                        modeSwitcher: AnyView(RightPanelModeSwitcher(selectedMode: model.rightPanelMode, selectMode: model.showRightPanel))
                     )
                 case .focus, .research:
                     DocumentInspectorView(
                         model: model,
-                        modeSwitcher: AnyView(RightPanelModeSwitcher(model: model))
+                        modeSwitcher: AnyView(RightPanelModeSwitcher(selectedMode: model.rightPanelMode, selectMode: model.showRightPanel))
                     )
                 }
             }
@@ -222,23 +246,76 @@ struct ContentView: View {
     }
 }
 
+private struct ReadArcAmbientBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [
+                NativeProTheme.window,
+                Color(red: 0.945, green: 0.976, blue: 1.000),
+                Color(red: 0.965, green: 0.982, blue: 1.000)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+    }
+}
+
 private struct ResponsiveReaderLayout {
     let width: CGFloat
+    let height: CGFloat
 
     var railWidth: CGFloat {
-        width < 980 ? 62 : 76
+        CommandRailMetrics.slotWidth(for: height, windowWidth: width)
     }
 
     var showsSidebar: Bool {
-        width >= 940
+        width >= 900
     }
 
     var defaultSidebarWidth: CGFloat {
-        width < 980 ? 168 : (width < 1160 ? 176 : 202)
+        if width < 1060 {
+            return 230
+        }
+        if width < 1400 {
+            return 260
+        }
+        if width < 1800 {
+            return 290
+        }
+        return 320
     }
 
     var minSidebarWidth: CGFloat {
-        width < 980 ? 168 : 188
+        width < 1060 ? 210 : 240
+    }
+
+    var contentSpacing: CGFloat {
+        if width < 1100 {
+            return 12
+        }
+        if width < 1500 {
+            return 16
+        }
+        return 22
+    }
+
+    var contentLeadingPadding: CGFloat {
+        if width < 1100 {
+            return 18
+        }
+        return width < 1500 ? 26 : 34
+    }
+
+    var contentTrailingPadding: CGFloat {
+        if width < 1100 {
+            return 16
+        }
+        return width < 1500 ? 22 : 28
+    }
+
+    var contentBottomPadding: CGFloat {
+        height < 680 ? 18 : 28
     }
 
     func leftSidebarWidth(
@@ -259,17 +336,20 @@ private struct ResponsiveReaderLayout {
     }
 
     var defaultRightPanelWidth: CGFloat {
-        if width < 980 {
-            return 280
+        if width < 1060 {
+            return 270
         }
         if width < 1400 {
-            return 380
+            return 310
         }
-        return 460
+        if width < 1800 {
+            return 350
+        }
+        return 390
     }
 
     var minRightPanelWidth: CGFloat {
-        width < 980 ? 260 : 340
+        width < 1060 ? 250 : 290
     }
 
     func rightPanelWidth(
@@ -300,17 +380,19 @@ private struct ResponsiveReaderLayout {
         let rightWidth = rightPanelVisible
             ? (preferredRightPanelWidth > 0 ? CGFloat(preferredRightPanelWidth) : defaultRightPanelWidth)
             : 0
-        let minReaderWidth: CGFloat = width < 980 ? 300 : 420
-        let available = width - railWidth - rightWidth - minReaderWidth
-        return max(minSidebarWidth, min(420, available))
+        let minReaderWidth: CGFloat = width < 1060 ? 300 : 420
+        let chrome = contentLeadingPadding + contentTrailingPadding + contentSpacing * 3
+        let available = width - railWidth - rightWidth - minReaderWidth - chrome
+        return max(minSidebarWidth, min(360, available))
     }
 
     private func maxRightPanelWidth(leftSidebarWidth: CGFloat, sidebarVisible: Bool, libraryOverlayVisible: Bool) -> CGFloat {
         let sidebarIsShown = (showsSidebar && sidebarVisible) || libraryOverlayVisible
-        let occupiedWidth = railWidth + (sidebarIsShown ? leftSidebarWidth : 0)
-        let minReaderWidth: CGFloat = width < 980 ? 300 : 380
+        let chrome = contentLeadingPadding + contentTrailingPadding + contentSpacing * 3
+        let occupiedWidth = railWidth + (sidebarIsShown ? leftSidebarWidth : 0) + chrome
+        let minReaderWidth: CGFloat = width < 1060 ? 300 : 420
         let available = width - occupiedWidth - minReaderWidth
-        return max(minRightPanelWidth, min(840, available))
+        return max(minRightPanelWidth, min(440, available))
     }
 }
 
@@ -421,20 +503,32 @@ private struct CommandRailView: View {
     let usesSidebarCollapse: Bool
     @AppStorage("appearanceMode") private var appearanceModeRaw = AppAppearanceMode.system.rawValue
     @AppStorage("appLanguage") private var languageRaw = AppLanguage.system.rawValue
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        VStack(spacing: 0) {
-            ReadArcGlassContainer(spacing: 8) {
-                VStack(spacing: 8) {
-                    RailButton(title: model.rightPanelMode == .chat && model.isInspectorVisible ? "Hide Chat" : "Chat", systemImage: "bubble.left.and.bubble.right", isActive: model.rightPanelMode == .chat && model.isInspectorVisible) {
+        GeometryReader { proxy in
+            let metrics = CommandRailMetrics(availableHeight: proxy.size.height, slotWidth: proxy.size.width)
+            let shellShadow = metrics.shellShadow(for: colorScheme)
+
+            VStack(spacing: 0) {
+                VStack(spacing: metrics.itemSpacing) {
+                    CommandRailLogoView(metrics: metrics)
+
+                    RailButton(
+                        title: model.rightPanelMode == .chat && model.isInspectorVisible ? "Hide Chat" : "Chat",
+                        systemImage: "bubble.left.and.bubble.right",
+                        isActive: model.rightPanelMode == .chat && model.isInspectorVisible,
+                        metrics: metrics
+                    ) {
                         model.toggleChat()
                     }
 
                     RailButton(
                         title: language.text("library.title"),
                         systemImage: "folder",
-                        isActive: model.isLibraryOverlayVisible
+                        isActive: model.isLibraryOverlayVisible,
+                        metrics: metrics
                     ) {
                         model.showLibrary()
                     }
@@ -442,44 +536,46 @@ private struct CommandRailView: View {
                     RailButton(
                         title: language.text("thumbnails.title"),
                         systemImage: "sidebar.leading",
-                        isActive: model.hasDocument && model.isSidebarVisible && !model.isLibraryOverlayVisible
+                        isActive: model.hasDocument && model.isSidebarVisible && !model.isLibraryOverlayVisible,
+                        metrics: metrics
                     ) {
                         if model.hasDocument {
-                            model.showThumbnails()
+                            model.toggleThumbnails()
                         } else {
                             model.showLibrary()
                         }
                     }
-                    RailButton(title: "Search", systemImage: "magnifyingglass", isActive: model.rightPanelMode == .research && model.inspectorTab == .search && model.isInspectorVisible) {
+
+                    RailButton(
+                        title: "Search",
+                        systemImage: "magnifyingglass",
+                        isActive: model.rightPanelMode == .research && model.inspectorTab == .search && model.isInspectorVisible,
+                        metrics: metrics
+                    ) {
                         model.showResearch(tab: .search)
                     }
-                    RailButton(title: "Notes", systemImage: "note.text", isActive: model.rightPanelMode == .focus && model.isInspectorVisible) {
-                        model.showFocus()
-                    }
-                    RailButton(title: "Outline", systemImage: "list.bullet.rectangle", isActive: model.rightPanelMode == .research && model.inspectorTab == .outline && model.isInspectorVisible) {
-                        model.showResearch(tab: .outline)
-                    }
                 }
-                .padding(.vertical, 6)
+                .padding(.top, metrics.logoTopPadding)
+                .padding(.bottom, metrics.verticalPadding)
+                .frame(width: metrics.containerWidth)
+                .padding(.horizontal, metrics.shellPadding)
+                .padding(.vertical, metrics.shellPadding)
                 .readArcGlass(
-                    in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                    fallbackColor: NativeProTheme.commandRail,
-                    strokeColor: NativeProTheme.separator.opacity(0.42)
+                    in: RoundedRectangle(cornerRadius: metrics.shellCornerRadius, style: .continuous),
+                    fallbackColor: NativeProTheme.commandRailShell,
+                    strokeColor: NativeProTheme.separator.opacity(0.20)
                 )
+                .overlay {
+                    RoundedRectangle(cornerRadius: metrics.shellCornerRadius, style: .continuous)
+                        .fill(metrics.shellDepth(for: colorScheme))
+                        .allowsHitTesting(false)
+                }
+                .shadow(color: shellShadow.color, radius: shellShadow.radius, x: shellShadow.x, y: shellShadow.y)
             }
-            .padding(.top, 20)
-            .frame(maxWidth: .infinity, alignment: .center)
-
-            Spacer(minLength: 0)
-
-            RailSettingsMenu(
-                appearanceMode: appearanceMode,
-                appLanguage: appLanguage
-            )
-            .padding(.bottom, 16)
+            .padding(.top, metrics.railTopInset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color.clear)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .background(Color.clear)
     }
 
     private var appearanceMode: Binding<AppAppearanceMode> {
@@ -500,6 +596,18 @@ private struct CommandRailView: View {
             get: { AppLanguage(rawValue: languageRaw) ?? .system },
             set: { languageRaw = $0.rawValue }
         )
+    }
+}
+
+private struct CommandRailLogoView: View {
+    let metrics: CommandRailMetrics
+
+    var body: some View {
+        AppLogoView(size: metrics.logoSize)
+            .frame(width: metrics.hitFrame, height: metrics.hitFrame)
+            .contentShape(RoundedRectangle(cornerRadius: metrics.buttonRadius, style: .continuous))
+            .help("ReadArc")
+            .accessibilityLabel("ReadArc")
     }
 }
 
@@ -607,26 +715,32 @@ private struct RailSettingsMenu: View {
 }
 
 private struct RightPanelModeSwitcher: View {
-    @ObservedObject var model: ReaderModel
+    let selectedMode: RightPanelMode
+    let selectMode: (RightPanelMode) -> Void
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        Picker("Right Panel", selection: panelMode) {
+        HStack(spacing: 0) {
             ForEach(RightPanelMode.allCases) { mode in
-                Label(mode.title(language: language), systemImage: mode.systemImage)
-                    .tag(mode)
+                Button {
+                    guard selectedMode != mode else { return }
+                    selectMode(mode)
+                } label: {
+                    Text(mode.title(language: language))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(selectedMode == mode ? NativeProTheme.accent : NativeProTheme.muted)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .controlSize(.small)
-    }
-
-    private var panelMode: Binding<RightPanelMode> {
-        Binding(
-            get: { model.rightPanelMode },
-            set: { model.showRightPanel($0) }
-        )
+        .contentShape(Rectangle())
+        .frame(maxWidth: .infinity)
+        .animation(.easeInOut(duration: 0.14), value: selectedMode)
     }
 }
 
@@ -634,26 +748,152 @@ private struct RailButton: View {
     let title: String
     let systemImage: String
     let isActive: Bool
+    let metrics: CommandRailMetrics
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            action()
+        } label: {
             Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: metrics.iconSize, weight: .regular))
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: 44, height: 44)
-                .readArcGlass(
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-                    fallbackColor: isActive ? NativeProTheme.selection.opacity(0.72) : Color.clear,
-                    strokeColor: isActive ? NativeProTheme.accent.opacity(0.22) : .clear,
-                    isInteractive: true,
-                    tint: isActive ? NativeProTheme.accent.opacity(0.10) : nil
-                )
                 .foregroundStyle(isActive ? NativeProTheme.accent : NativeProTheme.muted)
+                .opacity(isActive ? 1 : 0.82)
+                .frame(width: metrics.hitFrame, height: metrics.hitFrame)
+            .contentShape(RoundedRectangle(cornerRadius: metrics.buttonRadius, style: .continuous))
         }
-        .frame(width: 54, height: 50)
+        .frame(width: metrics.hitFrame, height: metrics.hitFrame)
         .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: metrics.buttonRadius, style: .continuous))
         .help(title)
         .accessibilityLabel(title)
+    }
+}
+
+private struct CommandRailMetrics {
+    let availableHeight: CGFloat
+    let slotWidth: CGFloat
+
+    static func slotWidth(for height: CGFloat, windowWidth: CGFloat) -> CGFloat {
+        if height < 620 {
+            return 54
+        }
+        if height > 900, windowWidth >= 1280 {
+            return 60
+        }
+        return windowWidth < 980 ? 56 : 58
+    }
+
+    var buttonFrame: CGFloat {
+        clamp(availableHeight * 0.055, lower: 40, upper: 46)
+    }
+
+    var hitFrame: CGFloat {
+        max(44, buttonFrame + 4)
+    }
+
+    var iconSize: CGFloat {
+        clamp(buttonFrame * 0.42, lower: 16, upper: 19)
+    }
+
+    var logoSize: CGFloat {
+        clamp(buttonFrame * 0.84, lower: 32, upper: 39)
+    }
+
+    var verticalPadding: CGFloat {
+        clamp(availableHeight * 0.024, lower: 12, upper: 22)
+    }
+
+    var logoTopPadding: CGFloat {
+        clamp(availableHeight * 0.006, lower: 2, upper: 6)
+    }
+
+    var railTopInset: CGFloat {
+        clamp(availableHeight * 0.004, lower: 0, upper: 4)
+    }
+
+    var itemSpacing: CGFloat {
+        let targetHeight = min(max(availableHeight * 0.42, minimumContentHeight), min(availableHeight - 40, 360))
+        let spacing = (targetHeight - fixedContentHeight - verticalPadding * 2) / 4
+        return clamp(spacing, lower: 8, upper: 14)
+    }
+
+    var containerWidth: CGFloat {
+        min(max(buttonFrame + 6, 48), max(48, slotWidth - 6))
+    }
+
+    var containerCornerRadius: CGFloat {
+        clamp(containerWidth * 0.42, lower: 20, upper: 26)
+    }
+
+    var buttonRadius: CGFloat {
+        clamp(buttonFrame * 0.28, lower: 12, upper: 15)
+    }
+
+    var shadowRadius: CGFloat {
+        clamp(buttonFrame * 0.36, lower: 14, upper: 20)
+    }
+
+    var shellPadding: CGFloat {
+        clamp(slotWidth * 0.08, lower: 4, upper: 7)
+    }
+
+    var shellCornerRadius: CGFloat {
+        clamp(slotWidth * 0.26, lower: 18, upper: 24)
+    }
+
+    func shellDepth(for colorScheme: ColorScheme) -> LinearGradient {
+        if colorScheme == .light {
+            return LinearGradient(
+                colors: [
+                    Color.white.opacity(0.115),
+                    Color.white.opacity(0.035),
+                    Color.clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        return LinearGradient(
+            colors: [
+                Color.white.opacity(0.050),
+                Color.clear,
+                Color.black.opacity(0.100)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    func shellShadow(for colorScheme: ColorScheme) -> (color: Color, radius: CGFloat, x: CGFloat, y: CGFloat) {
+        if colorScheme == .light {
+            return (
+                color: Color.black.opacity(0.075),
+                radius: clamp(shadowRadius * 0.70, lower: 9, upper: 12),
+                x: 0,
+                y: 6
+            )
+        }
+
+        return (
+            color: Color.black.opacity(0.34),
+            radius: shadowRadius + 8,
+            x: 8,
+            y: 18
+        )
+    }
+
+    private var fixedContentHeight: CGFloat {
+        hitFrame * 5
+    }
+
+    private var minimumContentHeight: CGFloat {
+        fixedContentHeight + verticalPadding * 2 + 8 * 4
+    }
+
+    private func clamp(_ value: CGFloat, lower: CGFloat, upper: CGFloat) -> CGFloat {
+        min(max(value, lower), upper)
     }
 }

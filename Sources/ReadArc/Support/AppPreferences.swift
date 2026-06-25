@@ -75,14 +75,6 @@ enum AppAppearanceController {
 
     @MainActor
     static var currentSystemColorScheme: ColorScheme {
-        let application = NSApplication.shared
-        if application.isRunning {
-            let appearance = application.effectiveAppearance
-            if let match = appearance.bestMatch(from: [.darkAqua, .aqua]) {
-                return match == .darkAqua ? .dark : .light
-            }
-        }
-
         return persistedSystemColorScheme
     }
 
@@ -180,12 +172,20 @@ enum L10n {
         "toolbar.zoomOut": "Zoom Out",
         "toolbar.zoomIn": "Zoom In",
         "toolbar.fitPage": "Fit Page",
+        "toolbar.actualSize": "Actual Size",
+        "toolbar.firstPage": "First Page",
+        "toolbar.lastPage": "Last Page",
         "toolbar.search": "Search",
+        "toolbar.clearSearch": "Clear Search",
+        "toolbar.searchMatchesFormat": "%@ matches",
         "toolbar.previousMatch": "Previous Match",
         "toolbar.nextMatch": "Next Match",
         "toolbar.showPanel": "Show Panel",
         "toolbar.hidePanel": "Hide Panel",
+        "toolbar.showChat": "Show Chat",
         "toolbar.more": "More",
+        "toolbar.collapseControls": "Collapse Controls",
+        "toolbar.expandControls": "Expand Controls",
         "library.title": "Library",
         "library.subtitle": "Recent PDFs and reading sets",
         "library.search": "Search library",
@@ -243,6 +243,19 @@ enum L10n {
         "chat.context": "Context",
         "chat.attached": "Attached",
         "chat.empty": "Empty",
+        "chat.agentName": "ReadArc Agent",
+        "chat.agentOnline": "Online",
+        "chat.basedOnPDF": "Based on current PDF · page %d",
+        "chat.sources": "Sources",
+        "chat.viewAllSources": "View all %d sources",
+        "chat.quickActions": "Quick Actions",
+        "chat.greeting": "Greeting",
+        "chat.action.summaryPage": "Summarize this page",
+        "chat.action.keyPoints": "Extract key points",
+        "chat.action.mindMap": "Generate mind map",
+        "chat.prompt.summaryPage": "Summarize the current PDF page with concise bullets and cite the page number.",
+        "chat.prompt.keyPoints": "Extract the key points from the current PDF page and group them by topic.",
+        "chat.prompt.mindMap": "Create a compact text mind map for the current PDF page.",
         "chat.noPDFContext": "Open a PDF to give the agent document context.",
         "chat.pages": "%d pages · current page %d",
         "chat.initial": "Hi, I’m ReadArc. Ask me to summarize, explain, search, or analyze the current PDF.",
@@ -294,12 +307,20 @@ enum L10n {
         "toolbar.zoomOut": "缩小",
         "toolbar.zoomIn": "放大",
         "toolbar.fitPage": "适合窗口",
+        "toolbar.actualSize": "实际大小",
+        "toolbar.firstPage": "第一页",
+        "toolbar.lastPage": "最后一页",
         "toolbar.search": "搜索",
+        "toolbar.clearSearch": "清空搜索",
+        "toolbar.searchMatchesFormat": "%@ 个匹配",
         "toolbar.previousMatch": "上一个匹配",
         "toolbar.nextMatch": "下一个匹配",
         "toolbar.showPanel": "显示右侧栏",
         "toolbar.hidePanel": "隐藏右侧栏",
+        "toolbar.showChat": "显示对话",
         "toolbar.more": "更多",
+        "toolbar.collapseControls": "折叠工具栏",
+        "toolbar.expandControls": "展开工具栏",
         "library.title": "资料库",
         "library.subtitle": "最近 PDF 与阅读集",
         "library.search": "搜索资料库",
@@ -357,6 +378,19 @@ enum L10n {
         "chat.context": "上下文",
         "chat.attached": "已附加",
         "chat.empty": "空",
+        "chat.agentName": "ReadArc Agent",
+        "chat.agentOnline": "在线",
+        "chat.basedOnPDF": "基于当前 PDF · 第 %d 页",
+        "chat.sources": "来源",
+        "chat.viewAllSources": "查看全部 %d 个来源",
+        "chat.quickActions": "快速操作",
+        "chat.greeting": "打招呼",
+        "chat.action.summaryPage": "总结本页内容",
+        "chat.action.keyPoints": "提取关键要点",
+        "chat.action.mindMap": "生成思维导图",
+        "chat.prompt.summaryPage": "请总结当前 PDF 页面，用简洁要点输出，并标注页码。",
+        "chat.prompt.keyPoints": "请提取当前 PDF 页面的关键要点，并按主题归类。",
+        "chat.prompt.mindMap": "请为当前 PDF 页面生成一份紧凑的文本思维导图。",
         "chat.noPDFContext": "打开 PDF 后，Agent 会获得文档上下文。",
         "chat.pages": "%d 页 · 当前第 %d 页",
         "chat.initial": "你好，我是 ReadArc。可以帮你总结、解释、检索和分析当前 PDF。",

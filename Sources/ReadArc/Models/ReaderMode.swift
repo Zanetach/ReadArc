@@ -22,6 +22,34 @@ enum ReaderMode: String, CaseIterable, Identifiable {
     }
 }
 
+struct ReaderPanelState: Equatable {
+    var isInspectorVisible: Bool
+    var rightPanelMode: RightPanelMode
+    var inspectorTab: InspectorTab
+    var readerMode: ReaderMode
+
+    static let `default` = ReaderPanelState(
+        isInspectorVisible: false,
+        rightPanelMode: .research,
+        inspectorTab: .search,
+        readerMode: .nativePro
+    )
+
+    func updating(
+        isInspectorVisible: Bool? = nil,
+        rightPanelMode: RightPanelMode? = nil,
+        inspectorTab: InspectorTab? = nil,
+        readerMode: ReaderMode? = nil
+    ) -> ReaderPanelState {
+        ReaderPanelState(
+            isInspectorVisible: isInspectorVisible ?? self.isInspectorVisible,
+            rightPanelMode: rightPanelMode ?? self.rightPanelMode,
+            inspectorTab: inspectorTab ?? self.inspectorTab,
+            readerMode: readerMode ?? self.readerMode
+        )
+    }
+}
+
 struct SearchMatch: Identifiable, Sendable {
     let id: Int
     let index: Int
@@ -39,7 +67,12 @@ struct SearchOutput: Sendable {
 
 struct LoadedPDFPayload: @unchecked Sendable {
     let document: PDFDocument
+    let displayTitle: String
     let pageCount: Int
+}
+
+struct PDFIndexPayload: Sendable {
+    let displayTitle: String
     let outlineItems: [DocumentOutlineItem]
     let pageTexts: [DocumentPageText]
 }

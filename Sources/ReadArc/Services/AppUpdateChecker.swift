@@ -5,6 +5,10 @@ enum AppUpdateChecker {
     private static let latestReleaseURL = URL(string: "https://api.github.com/repos/Zanetach/ReadArc/releases/latest")
     private static let releasesPageURL = URL(string: "https://github.com/Zanetach/ReadArc/releases")
 
+    static func latestReleaseVersion() async throws -> String {
+        try await fetchLatestRelease().displayVersion
+    }
+
     @MainActor
     static func checkForUpdates(language: AppLanguage) {
         Task {
@@ -31,6 +35,7 @@ enum AppUpdateChecker {
         }
 
         var request = URLRequest(url: latestReleaseURL)
+        request.timeoutInterval = 8
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("ReadArc", forHTTPHeaderField: "User-Agent")
 

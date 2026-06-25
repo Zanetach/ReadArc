@@ -20,8 +20,8 @@ public final class RecentDocumentsStore: ObservableObject {
         self.documents = Self.loadDocuments(from: defaults, key: storageKey)
     }
 
-    public func add(url: URL, openedAt: Date = Date(), bookmarkData: Data? = nil) {
-        let document = RecentDocument(url: url, lastOpened: openedAt, bookmarkData: bookmarkData)
+    public func add(url: URL, title: String? = nil, openedAt: Date = Date(), bookmarkData: Data? = nil) {
+        let document = RecentDocument(url: url, title: title, lastOpened: openedAt, bookmarkData: bookmarkData)
         var next = documents.filter { $0.url != url }
         next.insert(document, at: 0)
         documents = Array(next.prefix(limit))

@@ -2,37 +2,49 @@ import AppKit
 import SwiftUI
 
 enum NativeProTheme {
-    static let window = adaptive(light: rgba(0.965, 0.969, 0.976, 0.360), dark: rgba(0.010, 0.013, 0.017, 0.500))
-    static let commandRail = adaptive(light: rgba(1.000, 1.000, 1.000, 0.300), dark: rgba(0.065, 0.071, 0.079, 0.460))
-    static let sidebar = adaptive(light: rgba(1.000, 1.000, 1.000, 0.340), dark: rgba(0.078, 0.086, 0.096, 0.520))
-    static let readerCanvas = adaptive(light: rgba(0.956, 0.962, 0.970, 0.760), dark: rgba(0.014, 0.017, 0.022, 0.820))
-    static let header = adaptive(light: rgba(0.988, 0.990, 0.994, 0.440), dark: rgba(0.095, 0.104, 0.116, 0.540))
-    static let inspector = adaptive(light: rgba(0.988, 0.990, 0.994, 0.400), dark: rgba(0.072, 0.080, 0.091, 0.560))
-    static let inspectorResearch = adaptive(light: rgba(0.980, 0.992, 0.986, 0.420), dark: rgba(0.060, 0.079, 0.071, 0.560))
-    static let panel = adaptive(light: rgba(1.000, 1.000, 1.000, 0.340), dark: rgba(0.148, 0.160, 0.178, 0.480))
-    static let tile = adaptive(light: rgba(1.000, 1.000, 1.000, 0.240), dark: rgba(0.196, 0.210, 0.230, 0.400))
-    static let accent = adaptive(light: rgb(0.096, 0.557, 0.370), dark: rgb(0.612, 0.920, 0.420))
-    static let primaryButton = adaptive(light: rgb(0.000, 0.478, 1.000), dark: rgb(0.914, 0.922, 0.933))
-    static let primaryButtonText = adaptive(light: rgb(1.000, 1.000, 1.000), dark: rgb(0.020, 0.021, 0.022))
-    static let selection = adaptive(light: rgb(0.875, 0.948, 0.902), dark: rgb(0.082, 0.153, 0.096))
-    static let searchHit = adaptive(light: rgb(1.000, 0.973, 0.843), dark: rgb(0.245, 0.176, 0.056))
-    static let searchBorder = adaptive(light: rgb(0.929, 0.694, 0.180), dark: rgb(0.776, 0.604, 0.204))
-    static let ink = adaptive(light: rgb(0.112, 0.122, 0.136), dark: rgb(0.906, 0.925, 0.948))
-    static let muted = adaptive(light: rgb(0.410, 0.440, 0.480), dark: rgb(0.555, 0.596, 0.648))
-    static let faint = adaptive(light: rgb(0.612, 0.642, 0.682), dark: rgb(0.373, 0.412, 0.462))
-    static let separator = adaptive(light: rgba(0.000, 0.000, 0.000, 0.090), dark: rgba(1.000, 1.000, 1.000, 0.105))
-    static let success = adaptive(light: rgb(0.141, 0.541, 0.361), dark: rgb(0.471, 0.902, 0.510))
-    static let successSoft = adaptive(light: rgb(0.914, 0.965, 0.937), dark: rgb(0.058, 0.145, 0.075))
+    static let window = adaptive(light: rgb255(0xF2, 0xF7, 0xFF), dark: rgb255(0x0B, 0x11, 0x18))
+    static let commandRail = adaptive(light: rgb255(0xF9, 0xFB, 0xFF), dark: rgba255(0x17, 0x20, 0x2A, 0.940))
+    static let commandRailShell = adaptive(light: rgb255(0xF2, 0xF7, 0xFF), dark: rgba255(0x0E, 0x16, 0x1F, 0.960))
+    static let commandRailTile = adaptive(light: rgba255(0xFF, 0xFF, 0xFF, 0.001), dark: rgba255(0x2A, 0x35, 0x42, 0.760))
+    static let commandRailTileActive = adaptive(light: rgba255(0xFF, 0xFF, 0xFF, 0.001), dark: rgba255(0x30, 0x3D, 0x4B, 0.860))
+    static let sidebar = adaptive(light: rgb255(0xFA, 0xFC, 0xFF), dark: rgba255(0x13, 0x1C, 0x27, 0.960))
+    static let readerCanvas = adaptive(light: rgb255(0xF5, 0xF8, 0xFE), dark: rgb255(0x0A, 0x0F, 0x16))
+    static let header = adaptive(light: rgb255(0xFA, 0xFC, 0xFF), dark: rgba255(0x12, 0x1A, 0x23, 0.940))
+    static let inspector = adaptive(light: rgb255(0xFF, 0xFF, 0xFF), dark: rgba255(0x14, 0x1D, 0x27, 0.960))
+    static let inspectorResearch = adaptive(light: rgb255(0xFF, 0xFF, 0xFF), dark: rgba255(0x12, 0x1E, 0x25, 0.960))
+    static let panel = adaptive(light: rgb255(0xFF, 0xFF, 0xFF), dark: rgba255(0x1B, 0x25, 0x31, 0.900))
+    static let tile = adaptive(light: rgb255(0xFA, 0xFB, 0xFD), dark: rgba255(0x20, 0x2B, 0x39, 0.880))
+    static let accent = adaptive(light: rgb255(0x2F, 0x6F, 0xFF), dark: rgb255(0x64, 0x95, 0xFF))
+    static let primaryButton = adaptive(light: rgb(0.000, 0.478, 1.000), dark: rgb255(0x64, 0x95, 0xFF))
+    static let primaryButtonText = adaptive(light: rgb(1.000, 1.000, 1.000), dark: rgb255(0x08, 0x10, 0x1A))
+    static let selection = adaptive(light: rgb255(0xEA, 0xF1, 0xFF), dark: rgba255(0x18, 0x3D, 0x70, 0.920))
+    static let searchHit = adaptive(light: rgb(1.000, 0.973, 0.843), dark: rgb255(0x58, 0x42, 0x12))
+    static let searchBorder = adaptive(light: rgb(0.929, 0.694, 0.180), dark: rgb255(0xE5, 0xB8, 0x4D))
+    static let ink = adaptive(light: rgb255(0x0E, 0x17, 0x36), dark: rgb255(0xEC, 0xF4, 0xFF))
+    static let muted = adaptive(light: rgb255(0x75, 0x83, 0x9F), dark: rgb255(0xA3, 0xB2, 0xC6))
+    static let faint = adaptive(light: rgb(0.600, 0.635, 0.690), dark: rgb255(0x62, 0x72, 0x86))
+    static let separator = adaptive(light: rgba255(150, 160, 175, 0.220), dark: rgba255(0xB8, 0xC8, 0xE6, 0.145))
+    static let success = adaptive(light: rgb(0.118, 0.620, 0.408), dark: rgb255(0x68, 0xE4, 0x9A))
+    static let successSoft = adaptive(light: rgb(0.906, 0.965, 0.938), dark: rgb255(0x11, 0x33, 0x26))
+    static let surfaceShadow = adaptive(light: rgba(0, 0, 0, 0.10), dark: rgba(0, 0, 0, 0.44))
 
     static let readerCanvasNSColor = adaptiveNSColor(
-        light: rgba(0.918, 0.918, 0.934, 0.900),
-        dark: rgba(0.010, 0.013, 0.017, 0.940)
+        light: rgb255(0xF3, 0xF4, 0xF6),
+        dark: rgb255(0x08, 0x0D, 0x13)
     )
 
     private typealias RGBA = (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat)
 
     private static func rgb(_ red: CGFloat, _ green: CGFloat, _ blue: CGFloat) -> RGBA {
         rgba(red, green, blue, 1)
+    }
+
+    private static func rgb255(_ red: Int, _ green: Int, _ blue: Int) -> RGBA {
+        rgba255(red, green, blue, 1)
+    }
+
+    private static func rgba255(_ red: Int, _ green: Int, _ blue: Int, _ alpha: CGFloat) -> RGBA {
+        rgba(CGFloat(red) / 255, CGFloat(green) / 255, CGFloat(blue) / 255, alpha)
     }
 
     private static func rgba(_ red: CGFloat, _ green: CGFloat, _ blue: CGFloat, _ alpha: CGFloat) -> RGBA {

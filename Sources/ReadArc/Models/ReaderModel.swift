@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 final class ReaderModel: NSObject, ObservableObject {
     @Published var document: PDFDocument?
     @Published var documentURL: URL?
+    @Published var displayTitle = "ReadArc"
     @Published var pageIndex = 0
     @Published var pageCount = 0
     @Published var scaleFactor: CGFloat = 1
@@ -28,16 +29,14 @@ final class ReaderModel: NSObject, ObservableObject {
     @Published var pendingCommand: PDFViewCommand?
     @Published var errorMessage: String?
     @Published var isLibraryOverlayVisible = false
-    @Published var isSidebarVisible = true
-    @Published var isInspectorVisible = false
-    @Published var rightPanelMode: RightPanelMode = .research
-    @Published var inspectorTab: InspectorTab = .search
-    @Published var readerMode: ReaderMode = .nativePro
+    @Published var isSidebarVisible = false
+    @Published private(set) var panelState = ReaderPanelState.default
     @Published var selectedChatAgent: ChatAgentProvider = .codexCLI
     @Published var chatMessages: [ChatMessage] = []
 
     let recents = RecentDocumentsStore()
     private var loadTask: Task<Void, Never>?
+    private var indexTask: Task<Void, Never>?
     private var searchTask: Task<Void, Never>?
     private var pageTextTask: Task<Void, Never>?
     private var activeLoadID: UUID?
@@ -49,9 +48,27 @@ final class ReaderModel: NSObject, ObservableObject {
     nonisolated private static let maxCachedPageTextCharacters = 220_000
     nonisolated private static let maxStoredChatMessages = 80
     nonisolated private static let cachedPageTextLimit = 4_000
+    nonisolated private static let maxSearchPageTextCharacters = 280_000
+    nonisolated private static let maxSearchDurationSeconds: TimeInterval = 12
 
     var hasDocument: Bool {
         document != nil
+    }
+
+    var isInspectorVisible: Bool {
+        panelState.isInspectorVisible
+    }
+
+    var rightPanelMode: RightPanelMode {
+        panelState.rightPanelMode
+    }
+
+    var inspectorTab: InspectorTab {
+        panelState.inspectorTab
+    }
+
+    var readerMode: ReaderMode {
+        panelState.readerMode
     }
 
     var pageLabel: String {
@@ -86,7 +103,7 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     var documentTitle: String {
-        documentURL?.lastPathComponent ?? "ReadArc"
+        displayTitle
     }
 
     var documentLocation: String {
@@ -120,6 +137,7 @@ final class ReaderModel: NSObject, ObservableObject {
 
     deinit {
         loadTask?.cancel()
+        indexTask?.cancel()
         searchTask?.cancel()
         pageTextTask?.cancel()
         NotificationCenter.default.removeObserver(self)
@@ -152,6 +170,7 @@ final class ReaderModel: NSObject, ObservableObject {
         }
 
         loadTask?.cancel()
+        indexTask?.cancel()
         searchTask?.cancel()
         pageTextTask?.cancel()
 
@@ -162,9 +181,10 @@ final class ReaderModel: NSObject, ObservableObject {
         isSearching = false
         isSearchTruncated = false
         isLibraryOverlayVisible = false
-        isSidebarVisible = true
+        isSidebarVisible = false
         document = nil
         documentURL = url
+        displayTitle = url.deletingPathExtension().lastPathComponent
         pageIndex = 0
         pageCount = 0
         scaleFactor = 1
@@ -173,6 +193,12 @@ final class ReaderModel: NSObject, ObservableObject {
         outlineItems = []
         documentBookmarkData = bookmarkData
         cachedPageTexts = []
+        setPanelState(
+            isInspectorVisible: false,
+            rightPanelMode: .research,
+            inspectorTab: .search,
+            readerMode: .nativePro
+        )
 
         loadTask = Task.detached(priority: .userInitiated) { [weak self] in
             let payload = Self.loadPDFPayload(url: url, bookmarkData: bookmarkData)
@@ -194,18 +220,25 @@ final class ReaderModel: NSObject, ObservableObject {
 
                 self.document = payload.document
                 self.documentURL = url
+                self.displayTitle = payload.displayTitle
                 self.documentBookmarkData = bookmarkData
                 self.pageIndex = 0
                 self.pageCount = payload.pageCount
                 self.scaleFactor = 1
-                self.outlineItems = payload.outlineItems
-                self.cachedPageTexts = payload.pageTexts
+                self.outlineItems = []
+                self.cachedPageTexts = []
                 self.isLibraryOverlayVisible = false
-                self.isSidebarVisible = true
+                self.isSidebarVisible = false
+                self.setPanelState(
+                    isInspectorVisible: false,
+                    rightPanelMode: .research,
+                    inspectorTab: .search,
+                    readerMode: .nativePro
+                )
                 self.isLoadingDocument = false
-                self.recents.add(url: url, bookmarkData: bookmarkData)
-                self.schedulePageTextCache(around: 0)
+                self.recents.add(url: url, title: payload.displayTitle, bookmarkData: bookmarkData)
                 self.scheduleSearch()
+                self.scheduleDocumentIndexing(loadID: loadID, url: url, bookmarkData: bookmarkData)
                 self.loadTask = nil
             }
         }
@@ -229,11 +262,13 @@ final class ReaderModel: NSObject, ObservableObject {
 
     func closeDocument() {
         loadTask?.cancel()
+        indexTask?.cancel()
         searchTask?.cancel()
         pageTextTask?.cancel()
         activeLoadID = nil
         document = nil
         documentURL = nil
+        displayTitle = "ReadArc"
         pageIndex = 0
         pageCount = 0
         scaleFactor = 1
@@ -246,7 +281,14 @@ final class ReaderModel: NSObject, ObservableObject {
         outlineItems = []
         documentBookmarkData = nil
         cachedPageTexts = []
+        indexTask = nil
         pageTextTask = nil
+        setPanelState(
+            isInspectorVisible: false,
+            rightPanelMode: .research,
+            inspectorTab: .search,
+            readerMode: .nativePro
+        )
     }
 
     func revealDocumentInFinder() {
@@ -255,27 +297,36 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func showLibrary() {
-        isLibraryOverlayVisible.toggle()
-        isSidebarVisible = true
-        readerMode = .nativePro
+        setIfChanged(\.isLibraryOverlayVisible, to: !isLibraryOverlayVisible)
+        setIfChanged(\.isSidebarVisible, to: true)
+        setPanelState(readerMode: .nativePro)
     }
 
     func showThumbnails() {
-        isLibraryOverlayVisible = false
-        isSidebarVisible = true
-        readerMode = .nativePro
+        setIfChanged(\.isLibraryOverlayVisible, to: false)
+        setIfChanged(\.isSidebarVisible, to: true)
+        setPanelState(readerMode: .nativePro)
+    }
+
+    func toggleThumbnails() {
+        if hasDocument, isSidebarVisible, !isLibraryOverlayVisible {
+            setIfChanged(\.isSidebarVisible, to: false)
+            setPanelState(readerMode: .nativePro)
+        } else {
+            showThumbnails()
+        }
     }
 
     func showSidebar() {
-        isSidebarVisible = true
-        isLibraryOverlayVisible = false
-        readerMode = .nativePro
+        setIfChanged(\.isSidebarVisible, to: true)
+        setIfChanged(\.isLibraryOverlayVisible, to: false)
+        setPanelState(readerMode: .nativePro)
     }
 
     func toggleSidebar() {
-        isSidebarVisible.toggle()
-        isLibraryOverlayVisible = false
-        readerMode = .nativePro
+        setIfChanged(\.isSidebarVisible, to: !isSidebarVisible)
+        setIfChanged(\.isLibraryOverlayVisible, to: false)
+        setPanelState(readerMode: .nativePro)
     }
 
     func showInspector(tab: InspectorTab? = nil) {
@@ -298,34 +349,44 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func showFocus() {
-        isLibraryOverlayVisible = false
-        inspectorTab = .notes
-        readerMode = .focus
-        rightPanelMode = .focus
-        isInspectorVisible = true
+        setIfChanged(\.isLibraryOverlayVisible, to: false)
+        setPanelState(
+            isInspectorVisible: true,
+            rightPanelMode: .focus,
+            inspectorTab: .notes,
+            readerMode: .focus
+        )
     }
 
     func showResearch(tab: InspectorTab? = nil) {
-        isLibraryOverlayVisible = false
+        setIfChanged(\.isLibraryOverlayVisible, to: false)
+        let nextTab: InspectorTab
         if let tab {
-            inspectorTab = tab
+            nextTab = tab
         } else if inspectorTab == .notes {
-            inspectorTab = .search
+            nextTab = .search
+        } else {
+            nextTab = inspectorTab
         }
-        readerMode = .research
-        rightPanelMode = .research
-        isInspectorVisible = true
+        setPanelState(
+            isInspectorVisible: true,
+            rightPanelMode: .research,
+            inspectorTab: nextTab,
+            readerMode: .research
+        )
     }
 
     func showChat() {
-        isLibraryOverlayVisible = false
-        rightPanelMode = .chat
-        isInspectorVisible = true
+        setIfChanged(\.isLibraryOverlayVisible, to: false)
+        setPanelState(
+            isInspectorVisible: true,
+            rightPanelMode: .chat
+        )
     }
 
     func toggleChat() {
         if isInspectorVisible && rightPanelMode == .chat {
-            isInspectorVisible = false
+            setPanelState(isInspectorVisible: false)
         } else {
             showChat()
         }
@@ -377,10 +438,35 @@ final class ReaderModel: NSObject, ObservableObject {
 
     func toggleInspectorPanel() {
         if isInspectorVisible {
-            isInspectorVisible = false
+            setPanelState(isInspectorVisible: false)
         } else {
             showRightPanel(rightPanelMode)
         }
+    }
+
+    private func setPanelState(
+        isInspectorVisible: Bool? = nil,
+        rightPanelMode: RightPanelMode? = nil,
+        inspectorTab: InspectorTab? = nil,
+        readerMode: ReaderMode? = nil
+    ) {
+        let nextState = panelState.updating(
+            isInspectorVisible: isInspectorVisible,
+            rightPanelMode: rightPanelMode,
+            inspectorTab: inspectorTab,
+            readerMode: readerMode
+        )
+
+        guard panelState != nextState else {
+            return
+        }
+
+        panelState = nextState
+    }
+
+    private func setIfChanged<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<ReaderModel, Value>, to value: Value) {
+        guard self[keyPath: keyPath] != value else { return }
+        self[keyPath: keyPath] = value
     }
 
     func send(_ action: PDFViewAction) {
@@ -482,13 +568,54 @@ final class ReaderModel: NSObject, ObservableObject {
         )
     }
 
+    private func scheduleDocumentIndexing(loadID: UUID, url: URL, bookmarkData: Data?) {
+        indexTask?.cancel()
+        let activeURL = url
+        indexTask = Task.detached(priority: .utility) { [weak self] in
+            let payload = Self.buildPDFIndexPayload(url: activeURL, bookmarkData: bookmarkData)
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                guard let self,
+                      self.activeLoadID == loadID,
+                      self.documentURL == activeURL,
+                      !Task.isCancelled else {
+                    return
+                }
+
+                if let payload {
+                    self.displayTitle = payload.displayTitle
+                    self.outlineItems = payload.outlineItems
+                    self.mergeCachedPageTexts(payload.pageTexts)
+                    self.recents.add(url: activeURL, title: payload.displayTitle, bookmarkData: bookmarkData)
+                }
+
+                self.schedulePageTextCache(around: self.pageIndex)
+                self.indexTask = nil
+            }
+        }
+    }
+
     nonisolated private static func loadPDFPayload(url: URL, bookmarkData: Data?) -> LoadedPDFPayload? {
         withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData) { scopedURL in
             autoreleasepool {
                 guard let document = PDFDocument(url: scopedURL) else { return nil }
                 return LoadedPDFPayload(
                     document: document,
-                    pageCount: document.pageCount,
+                    displayTitle: resolvedFastDocumentTitle(for: document, url: scopedURL),
+                    pageCount: document.pageCount
+                )
+            }
+        }
+    }
+
+    nonisolated private static func buildPDFIndexPayload(url: URL, bookmarkData: Data?) -> PDFIndexPayload? {
+        withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData) { scopedURL in
+            autoreleasepool {
+                guard let document = PDFDocument(url: scopedURL) else { return nil }
+                return PDFIndexPayload(
+                    displayTitle: resolvedDocumentTitle(for: document, url: scopedURL),
                     outlineItems: buildOutlineItems(for: document),
                     pageTexts: buildPageTexts(for: document)
                 )
@@ -516,6 +643,176 @@ final class ReaderModel: NSObject, ObservableObject {
         }
 
         return output
+    }
+
+    nonisolated private static func resolvedFastDocumentTitle(
+        for document: PDFDocument,
+        url: URL
+    ) -> String {
+        let fallback = normalizedTitle(url.deletingPathExtension().lastPathComponent)
+        if let metadataTitle = document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String,
+           let title = cleanedDocumentTitle(metadataTitle, fallback: fallback) {
+            return title
+        }
+
+        return fallback.isEmpty ? url.lastPathComponent : fallback
+    }
+
+    nonisolated private static func resolvedDocumentTitle(
+        for document: PDFDocument,
+        url: URL
+    ) -> String {
+        let fallback = normalizedTitle(url.deletingPathExtension().lastPathComponent)
+        if let metadataTitle = document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String,
+           let title = cleanedDocumentTitle(metadataTitle, fallback: fallback) {
+            return title
+        }
+
+        if let firstPageText = document.page(at: 0)?.string,
+           let contentTitle = inferredTitle(from: firstPageText, fallback: fallback) {
+            return contentTitle
+        }
+
+        return fallback.isEmpty ? url.lastPathComponent : fallback
+    }
+
+    nonisolated private static func cleanedDocumentTitle(_ rawTitle: String, fallback: String) -> String? {
+        let title = normalizedTitle(rawTitle)
+        guard isUsableTitle(title) else { return nil }
+
+        let lowercased = title.lowercased()
+        if lowercased.hasSuffix(".pdf")
+            || lowercased.hasSuffix(".doc")
+            || lowercased.hasSuffix(".docx")
+            || lowercased.hasPrefix("microsoft word -") {
+            return nil
+        }
+
+        if title.caseInsensitiveCompare(fallback) == .orderedSame {
+            return title
+        }
+
+        return title
+    }
+
+    nonisolated private static func inferredTitle(from pageText: String, fallback: String) -> String? {
+        let lines = pageText
+            .components(separatedBy: .newlines)
+            .map(normalizedTitle)
+            .filter { isUsableTitle($0) }
+            .prefix(36)
+
+        var bestCandidate: (title: String, score: Int)?
+        let indexedLines = Array(lines.enumerated())
+
+        for (index, line) in indexedLines {
+            updateBestTitle(line, index: index, fallback: fallback, best: &bestCandidate)
+
+            if index + 1 < indexedLines.count {
+                let nextLine = indexedLines[index + 1].element
+                let combined = normalizedTitle("\(line) \(nextLine)")
+                updateBestTitle(combined, index: index, fallback: fallback, best: &bestCandidate)
+            }
+        }
+
+        return bestCandidate?.title
+    }
+
+    nonisolated private static func updateBestTitle(
+        _ candidate: String,
+        index: Int,
+        fallback: String,
+        best: inout (title: String, score: Int)?
+    ) {
+        let score = titleScore(candidate, index: index, fallback: fallback)
+        guard score > 0 else { return }
+        if best == nil || score > best!.score {
+            best = (candidate, score)
+        }
+    }
+
+    nonisolated private static func titleScore(_ title: String, index: Int, fallback: String) -> Int {
+        guard isUsableTitle(title), !isMetadataLabel(title) else { return 0 }
+
+        var score = max(0, 80 - index * 3)
+        let characterCount = title.count
+
+        if characterCount >= 8 && characterCount <= 80 {
+            score += 24
+        } else if characterCount > 110 {
+            score -= 36
+        }
+
+        if containsLetter(title) {
+            score += 12
+        }
+        if title.contains(" ") {
+            score += 8
+        }
+        if title.range(of: #"(流程|方案|报告|指南|手册|白皮书|overview|report|guide|manual)"#, options: [.regularExpression, .caseInsensitive]) != nil {
+            score += 18
+        }
+        if title.lowercased().contains("client onboarding") {
+            score -= 24
+        }
+        if title.range(of: #"[。！？.!?]{2,}|[:：]$"#, options: .regularExpression) != nil {
+            score -= 18
+        }
+        if title.caseInsensitiveCompare(fallback) == .orderedSame {
+            score -= 6
+        }
+
+        return score
+    }
+
+    nonisolated private static func isMetadataLabel(_ title: String) -> Bool {
+        let lowercased = title.lowercased()
+        let blockedPrefixes = [
+            "version",
+            "release date",
+            "published",
+            "client onboarding",
+            "onboarding ·",
+            "page "
+        ]
+        if blockedPrefixes.contains(where: { lowercased.hasPrefix($0) }) {
+            return true
+        }
+
+        let blockedExact = [
+            "版本",
+            "发布日期",
+            "适用",
+            "目录",
+            "摘要",
+            "table of contents"
+        ]
+        return blockedExact.contains(title)
+    }
+
+    nonisolated private static func isUsableTitle(_ title: String) -> Bool {
+        guard title.count >= 2, title.count <= 140 else { return false }
+        let lowercased = title.lowercased()
+        if lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://") {
+            return false
+        }
+        if title.range(of: #"^\d+([./-]\d+)*$"#, options: .regularExpression) != nil {
+            return false
+        }
+        return containsLetter(title)
+    }
+
+    nonisolated private static func containsLetter(_ title: String) -> Bool {
+        title.unicodeScalars.contains { scalar in
+            CharacterSet.letters.contains(scalar)
+        }
+    }
+
+    nonisolated private static func normalizedTitle(_ title: String) -> String {
+        title
+            .replacingOccurrences(of: "\u{00a0}", with: " ")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     nonisolated private static func sampledPageIndexes(pageCount: Int, limit: Int) -> [Int] {
@@ -577,6 +874,9 @@ final class ReaderModel: NSObject, ObservableObject {
         let activeURL = documentURL
         let bookmarkData = documentBookmarkData
         pageTextTask = Task.detached(priority: .utility) { [weak self] in
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+
             let pageTexts = Self.extractPageTexts(url: activeURL, bookmarkData: bookmarkData, pageIndexes: candidateIndexes)
             guard !Task.isCancelled, !pageTexts.isEmpty else { return }
 
@@ -697,9 +997,15 @@ final class ReaderModel: NSObject, ObservableObject {
 
             var results: [SearchMatch] = []
             let pageCount = document.pageCount
+            let deadline = Date().addingTimeInterval(maxSearchDurationSeconds)
+            var truncated = false
 
             for pageIndex in 0..<pageCount {
                 guard !Task.isCancelled else {
+                    return SearchOutput(results: results, truncated: true)
+                }
+
+                guard Date() < deadline else {
                     return SearchOutput(results: results, truncated: true)
                 }
 
@@ -708,9 +1014,15 @@ final class ReaderModel: NSObject, ObservableObject {
                 }
 
                 autoreleasepool {
-                    guard let pageText = document.page(at: pageIndex)?.string,
+                    guard var pageText = document.page(at: pageIndex)?.string,
                           !pageText.isEmpty else {
                         return
+                    }
+
+                    if pageText.count > maxSearchPageTextCharacters {
+                        let end = pageText.index(pageText.startIndex, offsetBy: maxSearchPageTextCharacters)
+                        pageText = String(pageText[..<end])
+                        truncated = true
                     }
 
                     var searchRange = pageText.startIndex..<pageText.endIndex
@@ -735,13 +1047,16 @@ final class ReaderModel: NSObject, ObservableObject {
                             )
                         )
 
-                        guard results.count < limit else { break }
+                        guard results.count < limit else {
+                            truncated = true
+                            break
+                        }
                         searchRange = range.upperBound..<pageText.endIndex
                     }
                 }
             }
 
-            return SearchOutput(results: results, truncated: false)
+            return SearchOutput(results: results, truncated: truncated)
         }
     }
 

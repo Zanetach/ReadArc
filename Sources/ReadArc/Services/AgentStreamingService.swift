@@ -2,6 +2,8 @@ import Foundation
 import ReadArcCore
 
 enum AgentStreamingService {
+    private static let availabilityCache = AgentAvailabilityCache()
+
     static func availability(for agent: ChatAgentProvider) -> AgentAvailability {
         let process = Process()
         let stdout = Pipe()
@@ -21,6 +23,10 @@ enum AgentStreamingService {
         }
 
         return process.terminationStatus == 0 ? .available : .unavailable
+    }
+
+    static func cachedAvailability(for agent: ChatAgentProvider) async -> AgentAvailability {
+        await availabilityCache.availability(for: agent)
     }
 
     static func stream(prompt: String, agent: ChatAgentProvider, workingDirectory: URL?) -> AsyncThrowingStream<String, Error> {
@@ -247,6 +253,22 @@ private final class ClaudeStreamCoalescer: @unchecked Sendable {
         case .finalResult(let text):
             return assistantText.isEmpty ? text : nil
         }
+    }
+}
+
+private actor AgentAvailabilityCache {
+    private var values: [ChatAgentProvider: AgentAvailability] = [:]
+
+    func availability(for agent: ChatAgentProvider) async -> AgentAvailability {
+        if let cached = values[agent] {
+            return cached
+        }
+
+        let result = await Task.detached(priority: .utility) {
+            AgentStreamingService.availability(for: agent)
+        }.value
+        values[agent] = result
+        return result
     }
 }
 

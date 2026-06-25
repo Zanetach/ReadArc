@@ -23,6 +23,7 @@ struct ReadArcCoreSmokeTests {
     private static func runTests() -> [String] {
         var failures: [String] = []
         failures.append(contentsOf: testAddMovesExistingDocumentToFrontWithoutDuplicates())
+        failures.append(contentsOf: testAddStoresRecognizedDocumentTitle())
         failures.append(contentsOf: testLimitKeepsMostRecentDocuments())
         failures.append(contentsOf: testAgentPromptIncludesBoundedCurrentPageContext())
         failures.append(contentsOf: testAgentPromptOmitsEmptyDocumentContext())
@@ -54,6 +55,19 @@ struct ReadArcCoreSmokeTests {
         return store.documents.map(\.url) == [first, second]
             ? []
             : ["expected duplicate recent document to move to front without duplication"]
+    }
+
+    @MainActor
+    private static func testAddStoresRecognizedDocumentTitle() -> [String] {
+        let defaults = makeDefaults()
+        let store = RecentDocumentsStore(defaults: defaults, storageKey: "recent-title-test")
+        let url = URL(fileURLWithPath: "/tmp/client-onboarding.pdf")
+
+        store.add(url: url, title: "Client Onboarding Flow")
+
+        return store.documents.first?.title == "Client Onboarding Flow"
+            ? []
+            : ["expected recent document to store recognized document title"]
     }
 
     @MainActor

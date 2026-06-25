@@ -16,44 +16,12 @@ struct AgentChatView: View {
     private let transcriptMessageCharacterLimit = 2_400
 
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { proxy in
+            let metrics = ChatPanelMetrics(size: proxy.size)
+
             VStack(spacing: 0) {
-                header
-
-                agentSwitcher
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        contextPanel
-
-                        if model.chatMessages.isEmpty {
-                            MessageBubble(
-                                message: ChatMessage(
-                                    role: .assistant,
-                                    text: language.text("chat.initial"),
-                                    agent: model.selectedChatAgent,
-                                    isStreaming: false
-                                )
-                            )
-                        }
-
-                        ForEach(model.chatMessages) { message in
-                            MessageBubble(message: message)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                }
-                .scrollContentBackground(.hidden)
-
-                composer
+                chatSurface(metrics: metrics)
             }
-            .readArcGlass(
-                in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                fallbackColor: NativeProTheme.sidebar,
-                strokeColor: NativeProTheme.separator.opacity(0.55)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .background(Color.clear)
         .onDisappear {
@@ -64,32 +32,56 @@ struct AgentChatView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 13) {
+    private func chatSurface(metrics: ChatPanelMetrics) -> some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                header(metrics: metrics)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: metrics.messageSpacing) {
+                        if model.hasDocument {
+                            quickActionsPanel(metrics: metrics)
+                        }
+
+                        if model.chatMessages.isEmpty {
+                            greetingPanel(metrics: metrics)
+                        }
+
+                        ForEach(model.chatMessages) { message in
+                            MessageBubble(message: message, metrics: metrics)
+                        }
+                    }
+                    .padding(.horizontal, metrics.contentPadding)
+                    .padding(.vertical, metrics.contentVerticalPadding)
+                }
+                .scrollContentBackground(.hidden)
+
+                composer(metrics: metrics)
+            }
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: metrics.outerCornerRadius, style: .continuous),
+                fallbackColor: NativeProTheme.sidebar,
+                strokeColor: NativeProTheme.separator.opacity(0.55)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: metrics.outerCornerRadius, style: .continuous))
+        }
+    }
+
+    private func header(metrics: ChatPanelMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Spacer(minLength: 0)
                 modeSwitcher
                 Spacer(minLength: 0)
             }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(language.text("chat.title"))
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(NativeProTheme.ink)
-
-                Text(language.text("chat.subtitle"))
-                    .font(.system(size: 11))
-                    .foregroundStyle(NativeProTheme.muted)
-                    .lineLimit(2)
-            }
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 16)
-        .padding(.bottom, 13)
+        .padding(.horizontal, metrics.headerHorizontalPadding)
+        .padding(.top, metrics.headerTopPadding)
+        .padding(.bottom, metrics.headerBottomPadding)
     }
 
     private var agentSwitcher: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 10) {
             Picker("Agent", selection: $model.selectedChatAgent) {
                 ForEach(ChatAgentProvider.allCases) { agent in
                     Label(agent.pickerTitle, systemImage: agent.systemImage)
@@ -98,7 +90,7 @@ struct AgentChatView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(maxWidth: 204)
+            .frame(maxWidth: 210)
 
             Spacer(minLength: 0)
 
@@ -108,65 +100,67 @@ struct AgentChatView: View {
                 language: language
             )
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .readArcGlass(
             in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-            fallbackColor: NativeProTheme.panel.opacity(0.76),
-            strokeColor: NativeProTheme.separator.opacity(0.58)
+            fallbackColor: NativeProTheme.panel.opacity(0.42),
+            strokeColor: NativeProTheme.separator.opacity(0.48)
         )
-        .padding(.horizontal, 18)
-        .padding(.bottom, 10)
     }
 
-    private var contextPanel: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Image(systemName: model.hasDocument ? "doc.richtext.fill" : "doc.richtext")
-                .font(.system(size: 15, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(model.hasDocument ? NativeProTheme.accent : NativeProTheme.muted)
-                .frame(width: 32, height: 32)
-                .readArcGlass(
-                    in: RoundedRectangle(cornerRadius: 9, style: .continuous),
-                    fallbackColor: model.hasDocument ? NativeProTheme.selection.opacity(0.62) : NativeProTheme.panel.opacity(0.58),
-                    strokeColor: model.hasDocument ? NativeProTheme.accent.opacity(0.14) : NativeProTheme.separator.opacity(0.62),
-                    tint: model.hasDocument ? NativeProTheme.accent.opacity(0.08) : nil
-                )
+    private func quickActionsPanel(metrics: ChatPanelMetrics) -> some View {
+        VStack(alignment: .leading, spacing: metrics.quickActionSpacing) {
+            Text(language.text("chat.quickActions"))
+                .font(.system(size: metrics.headingFont, weight: .semibold))
+                .foregroundStyle(NativeProTheme.ink)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(model.hasDocument ? model.documentTitle : language.text("chat.noPDFContext"))
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(NativeProTheme.ink)
-                    .lineLimit(2)
-
-                if model.hasDocument {
-                    Text(String(format: language.text("chat.pages"), model.pageCount, model.pageIndex + 1))
-                        .font(.system(size: 11))
-                        .foregroundStyle(NativeProTheme.muted)
-                        .lineLimit(1)
-                }
+            QuickActionButton(title: language.text("chat.action.summaryPage"), systemImage: "doc.text", metrics: metrics) {
+                sendQuickPrompt(language.text("chat.prompt.summaryPage"))
             }
 
-            Spacer(minLength: 0)
+            QuickActionButton(title: language.text("chat.action.keyPoints"), systemImage: "sparkles", metrics: metrics) {
+                sendQuickPrompt(language.text("chat.prompt.keyPoints"))
+            }
+
+            QuickActionButton(title: language.text("chat.action.mindMap"), systemImage: "square.grid.2x2", metrics: metrics) {
+                sendQuickPrompt(language.text("chat.prompt.mindMap"))
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(metrics.panelPadding)
         .readArcGlass(
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-            fallbackColor: NativeProTheme.panel.opacity(0.76),
-            strokeColor: NativeProTheme.separator.opacity(0.58)
+            in: RoundedRectangle(cornerRadius: metrics.panelCornerRadius, style: .continuous),
+            fallbackColor: NativeProTheme.panel.opacity(0.34),
+            strokeColor: NativeProTheme.separator.opacity(0.42)
         )
     }
 
-    private var composer: some View {
+    private func greetingPanel(metrics: ChatPanelMetrics) -> some View {
+        VStack(alignment: .leading, spacing: metrics.quickActionSpacing) {
+            Text(language.text("chat.greeting"))
+                .font(.system(size: metrics.headingFont, weight: .semibold))
+                .foregroundStyle(NativeProTheme.ink)
+
+            MessageBubble(
+                message: ChatMessage(
+                    role: .assistant,
+                    text: language.text("chat.initial"),
+                    agent: model.selectedChatAgent,
+                    isStreaming: false
+                ),
+                metrics: metrics
+            )
+        }
+    }
+
+    private func composer(metrics: ChatPanelMetrics) -> some View {
         VStack(spacing: 10) {
-            HStack(alignment: .bottom, spacing: 10) {
-                composerInput
-                sendButton
+            HStack(alignment: .bottom, spacing: metrics.composerGap) {
+                composerInput(metrics: metrics)
+                sendButton(metrics: metrics)
             }
         }
-        .padding(14)
+        .padding(metrics.contentPadding)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(NativeProTheme.separator)
@@ -174,24 +168,24 @@ struct AgentChatView: View {
         }
     }
 
-    private var composerInput: some View {
+    private func composerInput(metrics: ChatPanelMetrics) -> some View {
         TextField(String(format: language.text("chat.placeholder"), model.selectedChatAgent.title), text: $draftMessage, axis: .vertical)
             .textFieldStyle(.plain)
-            .font(.system(size: 14))
+            .font(.system(size: metrics.composerFont))
             .lineLimit(2...6)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 11)
-            .frame(minHeight: 48, alignment: .topLeading)
+            .padding(.horizontal, metrics.composerHorizontalPadding)
+            .padding(.vertical, metrics.composerVerticalPadding)
+            .frame(minHeight: metrics.composerMinHeight, alignment: .topLeading)
             .frame(maxWidth: .infinity)
             .readArcGlass(
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+                in: RoundedRectangle(cornerRadius: metrics.panelCornerRadius, style: .continuous),
                 fallbackColor: NativeProTheme.panel.opacity(0.88),
                 strokeColor: NativeProTheme.separator.opacity(0.76),
                 isInteractive: true
             )
     }
 
-    private var sendButton: some View {
+    private func sendButton(metrics: ChatPanelMetrics) -> some View {
         Button {
             if isStreaming {
                 stopStreaming()
@@ -200,10 +194,10 @@ struct AgentChatView: View {
             }
         } label: {
             Image(systemName: isStreaming ? "stop.fill" : "arrow.up")
-                .font(.system(size: 14, weight: .bold))
-                .frame(width: 42, height: 42)
+                .font(.system(size: metrics.sendIconFont, weight: .bold))
+                .frame(width: metrics.sendButtonSize, height: metrics.sendButtonSize)
                 .readArcGlass(
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+                    in: RoundedRectangle(cornerRadius: metrics.panelCornerRadius, style: .continuous),
                     fallbackColor: sendButtonBackground,
                     strokeColor: canSend || isStreaming ? NativeProTheme.accent.opacity(0.22) : NativeProTheme.separator,
                     isInteractive: true,
@@ -304,6 +298,12 @@ struct AgentChatView: View {
         }
     }
 
+    private func sendQuickPrompt(_ prompt: String) {
+        guard activeTask == nil else { return }
+        draftMessage = prompt
+        sendDraft()
+    }
+
     private func stopStreaming() {
         activeTask?.cancel()
         activeTask = nil
@@ -388,12 +388,52 @@ struct AgentChatView: View {
         availability = Dictionary(uniqueKeysWithValues: ChatAgentProvider.allCases.map { ($0, .checking) })
 
         for agent in ChatAgentProvider.allCases {
-            let result = await Task.detached(priority: .utility) {
-                AgentStreamingService.availability(for: agent)
-            }.value
+            let result = await AgentStreamingService.cachedAvailability(for: agent)
             availability[agent] = result
         }
     }
+}
+
+private struct ChatPanelMetrics: Equatable {
+    let width: CGFloat
+    let height: CGFloat
+
+    init(size: CGSize) {
+        self.width = size.width
+        self.height = size.height
+    }
+
+    private var scale: CGFloat {
+        min(max((width - 260) / 160, 0), 1)
+    }
+
+    var outerCornerRadius: CGFloat { 16 + scale * 4 }
+    var contentPadding: CGFloat { 11 + scale * 5 }
+    var contentVerticalPadding: CGFloat { 10 + scale * 4 }
+    var headerHorizontalPadding: CGFloat { 12 + scale * 8 }
+    var headerTopPadding: CGFloat { 11 + scale * 5 }
+    var headerBottomPadding: CGFloat { 6 + scale * 2 }
+    var panelPadding: CGFloat { 10 + scale * 2 }
+    var panelCornerRadius: CGFloat { 12 + scale * 2 }
+    var headingFont: CGFloat { 12 + scale * 1 }
+    var bodyFont: CGFloat { 12 + scale * 1 }
+    var captionFont: CGFloat { 9.5 + scale * 0.5 }
+    var quickActionFont: CGFloat { 11 + scale * 1 }
+    var quickActionIconFont: CGFloat { 11 + scale * 1 }
+    var quickActionHeight: CGFloat { 29 + scale * 3 }
+    var quickActionSpacing: CGFloat { 7 + scale * 2 }
+    var messageSpacing: CGFloat { 9 + scale * 3 }
+    var messageOuterSpacing: CGFloat { 7 + scale * 1 }
+    var messageSideSpacer: CGFloat { width < 320 ? 18 : 30 }
+    var avatarSize: CGFloat { 25 + scale * 5 }
+    var avatarIconFont: CGFloat { 12 + scale * 2 }
+    var composerGap: CGFloat { 8 + scale * 2 }
+    var composerFont: CGFloat { 12.5 + scale * 1 }
+    var composerHorizontalPadding: CGFloat { 10 + scale * 2 }
+    var composerVerticalPadding: CGFloat { 9 + scale * 2 }
+    var composerMinHeight: CGFloat { 42 + scale * 5 }
+    var sendButtonSize: CGFloat { 36 + scale * 5 }
+    var sendIconFont: CGFloat { 13 + scale * 1 }
 }
 
 private struct AgentStatusPill: View {
@@ -448,29 +488,66 @@ private struct AgentStatusPill: View {
         case .checking:
             return NativeProTheme.muted
         case .available:
-            return NativeProTheme.accent
+            return NativeProTheme.success
         case .unavailable:
             return NativeProTheme.muted
         }
     }
 }
 
+private struct QuickActionButton: View {
+    let title: String
+    let systemImage: String
+    let metrics: ChatPanelMetrics
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: systemImage)
+                    .font(.system(size: metrics.quickActionIconFont, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(NativeProTheme.muted)
+                    .frame(width: 18)
+
+                Text(title)
+                    .font(.system(size: metrics.quickActionFont, weight: .medium))
+                    .foregroundStyle(NativeProTheme.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.80)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 11)
+            .frame(height: metrics.quickActionHeight)
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: metrics.panelCornerRadius - 4, style: .continuous),
+                fallbackColor: NativeProTheme.panel.opacity(0.48),
+                strokeColor: NativeProTheme.separator.opacity(0.48),
+                isInteractive: true
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct MessageBubble: View {
     let message: ChatMessage
+    let metrics: ChatPanelMetrics
     @State private var didCopy = false
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: metrics.messageOuterSpacing) {
             if message.role == .user {
-                Spacer(minLength: 34)
+                Spacer(minLength: metrics.messageSideSpacer)
             }
 
             if message.role == .assistant {
-                ChatAvatar(role: message.role)
+                ChatAvatar(role: message.role, metrics: metrics)
             }
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: contentAlignment, spacing: 5) {
                 header
 
                 if message.isStreaming && message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -478,28 +555,23 @@ private struct MessageBubble: View {
                         .padding(.top, 1)
                 } else {
                     Text(messageText)
-                        .font(.system(size: 13))
-                        .foregroundStyle(message.role == .user ? .white : NativeProTheme.ink)
+                        .font(.system(size: metrics.bodyFont))
+                        .foregroundStyle(NativeProTheme.ink)
+                        .multilineTextAlignment(textAlignment)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 metadata
             }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 9)
-            .readArcGlass(
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous),
-                fallbackColor: bubbleBackground,
-                strokeColor: message.role == .assistant ? NativeProTheme.separator : .clear,
-                tint: message.role == .user ? NativeProTheme.accent.opacity(0.28) : nil
-            )
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
 
             if message.role == .assistant {
-                Spacer(minLength: 34)
+                Spacer(minLength: metrics.messageSideSpacer)
             }
 
             if message.role == .user {
-                ChatAvatar(role: message.role)
+                ChatAvatar(role: message.role, metrics: metrics)
             }
         }
     }
@@ -508,7 +580,7 @@ private struct MessageBubble: View {
         HStack(spacing: 8) {
             if let agent = message.agent {
                 Text(agent.title)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: metrics.captionFont, weight: .semibold))
                     .foregroundStyle(NativeProTheme.muted)
             }
 
@@ -517,7 +589,7 @@ private struct MessageBubble: View {
                     copyMessage()
                 } label: {
                     Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: metrics.captionFont, weight: .semibold))
                         .frame(width: 18, height: 18)
                 }
                 .buttonStyle(.plain)
@@ -539,7 +611,7 @@ private struct MessageBubble: View {
                 Text(language.text("chat.status.running"))
             }
         }
-        .font(.system(size: 10, weight: .medium, design: .monospaced))
+        .font(.system(size: metrics.captionFont, weight: .medium, design: .monospaced))
         .foregroundStyle(NativeProTheme.muted.opacity(0.78))
     }
 
@@ -550,13 +622,12 @@ private struct MessageBubble: View {
         return message.text
     }
 
-    private var bubbleBackground: Color {
-        switch message.role {
-        case .user:
-            return NativeProTheme.accent
-        case .assistant:
-            return NativeProTheme.panel.opacity(0.82)
-        }
+    private var contentAlignment: HorizontalAlignment {
+        message.role == .user ? .trailing : .leading
+    }
+
+    private var textAlignment: TextAlignment {
+        message.role == .user ? .trailing : .leading
     }
 
     private var timeLabel: String {
@@ -618,12 +689,13 @@ private struct TypingIndicator: View {
 
 private struct ChatAvatar: View {
     let role: ChatMessage.Role
+    let metrics: ChatPanelMetrics
 
     var body: some View {
         Image(systemName: role == .user ? "person.crop.circle.fill" : "cpu.fill")
-            .font(.system(size: 14, weight: .medium))
+            .font(.system(size: metrics.avatarIconFont, weight: .medium))
             .foregroundStyle(role == .user ? NativeProTheme.accent : NativeProTheme.success)
-            .frame(width: 30, height: 30)
+            .frame(width: metrics.avatarSize, height: metrics.avatarSize)
             .readArcGlass(
                 in: Circle(),
                 fallbackColor: NativeProTheme.panel.opacity(0.82),

@@ -24,23 +24,23 @@ struct ReadArcApp: App {
     var body: some Scene {
         WindowGroup("ReadArc") {
             ContentView(model: model)
-                .frame(minWidth: 900, minHeight: 560)
+                .frame(minWidth: 680, minHeight: 420)
                 .background(WindowConfigurator())
                 .environment(\.appLanguage, language)
                 .preferredColorScheme(resolvedColorScheme)
                 .onAppear {
-                    refreshSystemColorScheme()
                     AppAppearanceController.apply(appearanceMode)
+                    refreshSystemColorScheme()
                     AppAppearanceController.requestSystemAppearanceRefresh()
                     LaunchSetupCoordinator.runIfNeeded()
                 }
                 .onChange(of: appearanceModeRaw) { _, _ in
-                    refreshSystemColorScheme()
                     AppAppearanceController.apply(appearanceMode)
+                    refreshSystemColorScheme()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .readArcSystemAppearanceChanged)) { _ in
-                    refreshSystemColorScheme()
                     AppAppearanceController.apply(appearanceMode)
+                    refreshSystemColorScheme()
                 }
                 .onOpenURL { url in
                     model.openExternalFile(url)
@@ -56,17 +56,17 @@ struct ReadArcApp: App {
                 .environment(\.appLanguage, language)
                 .preferredColorScheme(resolvedColorScheme)
                 .onAppear {
-                    refreshSystemColorScheme()
                     AppAppearanceController.apply(appearanceMode)
+                    refreshSystemColorScheme()
                     AppAppearanceController.requestSystemAppearanceRefresh()
                 }
                 .onChange(of: appearanceModeRaw) { _, _ in
-                    refreshSystemColorScheme()
                     AppAppearanceController.apply(appearanceMode)
+                    refreshSystemColorScheme()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .readArcSystemAppearanceChanged)) { _ in
-                    refreshSystemColorScheme()
                     AppAppearanceController.apply(appearanceMode)
+                    refreshSystemColorScheme()
                 }
         }
     }
@@ -148,25 +148,25 @@ struct ReadArcCommands: Commands {
         }
 
         CommandMenu("PDF") {
-            Button("First Page") {
+            Button(language.text("toolbar.firstPage")) {
                 model.send(.firstPage)
             }
             .keyboardShortcut(.upArrow, modifiers: [.command])
             .disabled(!model.hasDocument)
 
-            Button("Previous Page") {
+            Button(language.text("toolbar.previousPage")) {
                 model.send(.previousPage)
             }
             .keyboardShortcut(.leftArrow, modifiers: [])
             .disabled(!model.hasDocument)
 
-            Button("Next Page") {
+            Button(language.text("toolbar.nextPage")) {
                 model.send(.nextPage)
             }
             .keyboardShortcut(.rightArrow, modifiers: [])
             .disabled(!model.hasDocument)
 
-            Button("Last Page") {
+            Button(language.text("toolbar.lastPage")) {
                 model.send(.lastPage)
             }
             .keyboardShortcut(.downArrow, modifiers: [.command])
@@ -174,19 +174,19 @@ struct ReadArcCommands: Commands {
 
             Divider()
 
-            Button("Zoom In") {
+            Button(language.text("toolbar.zoomIn")) {
                 model.send(.zoomIn)
             }
             .keyboardShortcut("+")
             .disabled(!model.hasDocument)
 
-            Button("Zoom Out") {
+            Button(language.text("toolbar.zoomOut")) {
                 model.send(.zoomOut)
             }
             .keyboardShortcut("-")
             .disabled(!model.hasDocument)
 
-            Button("Actual Size") {
+            Button(language.text("toolbar.actualSize")) {
                 model.send(.actualSize)
             }
             .keyboardShortcut("0")
@@ -194,12 +194,12 @@ struct ReadArcCommands: Commands {
 
             Divider()
 
-            Button(model.isInspectorVisible ? "Hide Panel" : "Show Panel") {
+            Button(language.text(model.isInspectorVisible ? "toolbar.hidePanel" : "toolbar.showPanel")) {
                 model.toggleInspectorPanel()
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
 
-            Button("Show Chat") {
+            Button(language.text("toolbar.showChat")) {
                 model.showChat()
             }
             .keyboardShortcut("j", modifiers: [.command, .option])

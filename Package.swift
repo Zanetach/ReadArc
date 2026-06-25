@@ -16,7 +16,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "ReadArc",
-            dependencies: ["ReadArcCore"]
+            dependencies: ["ReadArcCore"],
+            resources: [
+                .process("Resources")
+            ]
         ),
         .executableTarget(
             name: "ReadArcCoreSmokeTests",

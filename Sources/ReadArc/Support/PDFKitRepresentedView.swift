@@ -13,7 +13,6 @@ struct PDFKitRepresentedView: NSViewRepresentable {
         pdfView.displayMode = .singlePageContinuous
         pdfView.displayDirection = .vertical
         pdfView.displaysPageBreaks = true
-        pdfView.autoScales = true
         pdfView.minScaleFactor = 0.25
         pdfView.maxScaleFactor = 6.0
         pdfView.backgroundColor = NativeProTheme.readerCanvasNSColor
@@ -21,15 +20,23 @@ struct PDFKitRepresentedView: NSViewRepresentable {
         pdfView.doubleClickHandler = { [weak coordinator = context.coordinator] pdfView, event in
             coordinator?.toggleZoom(onDoubleClick: event, in: pdfView)
         }
+        pdfView.layoutHandler = { [weak coordinator = context.coordinator] pdfView in
+            coordinator?.handleLayout(in: pdfView)
+        }
         return pdfView
     }
 
     func updateNSView(_ pdfView: PDFView, context: Context) {
         context.coordinator.model = model
+        if pdfView.displayMode != .singlePageContinuous {
+            pdfView.displayMode = .singlePageContinuous
+        }
+        pdfView.displayDirection = .vertical
+        pdfView.displaysPageBreaks = true
 
         if pdfView.document !== model.document {
             pdfView.document = model.document
-            pdfView.autoScales = true
+            context.coordinator.scheduleFitPageWidth(in: pdfView)
             context.coordinator.scheduleSync(from: pdfView)
         }
 
@@ -98,19 +105,64 @@ struct PDFKitRepresentedView: NSViewRepresentable {
             case .goToSearchMatch(let pageIndex, let location, let length):
                 goToSearchMatch(pageIndex: pageIndex, location: location, length: length, in: pdfView)
             case .zoomIn:
+                isWidthFitted = false
                 pdfView.autoScales = false
                 pdfView.scaleFactor = min(pdfView.scaleFactor * 1.2, 6.0)
             case .zoomOut:
+                isWidthFitted = false
                 pdfView.autoScales = false
                 pdfView.scaleFactor = max(pdfView.scaleFactor / 1.2, 0.25)
             case .actualSize:
+                isWidthFitted = false
                 pdfView.autoScales = false
                 pdfView.scaleFactor = 1
             case .fitToView:
-                pdfView.autoScales = true
+                isWidthFitted = true
+                scheduleFitPageWidth(in: pdfView)
             }
 
             scheduleSync(from: pdfView)
+        }
+
+        func scheduleFitPageWidth(in pdfView: PDFView) {
+            guard !isFitScheduled else { return }
+            isFitScheduled = true
+            DispatchQueue.main.async { [weak self, weak pdfView] in
+                guard let self, let pdfView else { return }
+                self.isFitScheduled = false
+                self.fitPageWidth(in: pdfView)
+            }
+        }
+
+        func fitPageWidth(in pdfView: PDFView) {
+            guard let page = pdfView.currentPage ?? pdfView.document?.page(at: 0) else {
+                pdfView.autoScales = true
+                return
+            }
+
+            pdfView.autoScales = false
+            let pageBounds = page.bounds(for: pdfView.displayBox)
+            guard pageBounds.width > 0 else {
+                pdfView.autoScales = true
+                return
+            }
+
+            let viewportWidth = pdfView.enclosingScrollView?.contentView.bounds.width ?? pdfView.bounds.width
+            guard viewportWidth > 80 else {
+                scheduleFitPageWidth(in: pdfView)
+                return
+            }
+
+            let horizontalInset: CGFloat = 28
+            let targetWidth = max(1, viewportWidth - horizontalInset)
+            let scale = targetWidth / pageBounds.width
+            pdfView.scaleFactor = min(max(scale, pdfView.minScaleFactor), pdfView.maxScaleFactor)
+            scheduleSync(from: pdfView)
+        }
+
+        func handleLayout(in pdfView: PDFView) {
+            guard isWidthFitted, pdfView.document != nil else { return }
+            scheduleFitPageWidth(in: pdfView)
         }
 
         private func goToSearchMatch(pageIndex: Int, location: Int, length: Int, in pdfView: PDFView) {
@@ -136,14 +188,21 @@ struct PDFKitRepresentedView: NSViewRepresentable {
             let viewPoint = pdfView.convert(event.locationInWindow, from: nil)
             let page = pdfView.page(for: viewPoint, nearest: true)
             let pagePoint = page.map { pdfView.convert(viewPoint, to: $0) }
-            let fittedScale = max(pdfView.scaleFactorForSizeToFit, pdfView.minScaleFactor)
-            let isFitted = pdfView.autoScales || abs(pdfView.scaleFactor - fittedScale) < 0.04
+            let fittedScale = page.map { page -> CGFloat in
+                let pageBounds = page.bounds(for: pdfView.displayBox)
+                guard pageBounds.width > 0 else { return max(pdfView.scaleFactorForSizeToFit, pdfView.minScaleFactor) }
+                let viewportWidth = pdfView.enclosingScrollView?.contentView.bounds.width ?? pdfView.bounds.width
+                return min(max((viewportWidth - 28) / pageBounds.width, pdfView.minScaleFactor), pdfView.maxScaleFactor)
+            } ?? max(pdfView.scaleFactorForSizeToFit, pdfView.minScaleFactor)
+            let isFitted = abs(pdfView.scaleFactor - fittedScale) < 0.04
 
             if isFitted {
+                isWidthFitted = false
                 pdfView.autoScales = false
                 pdfView.scaleFactor = min(max(fittedScale * 2.0, 1.5), pdfView.maxScaleFactor)
             } else {
-                pdfView.autoScales = true
+                isWidthFitted = true
+                scheduleFitPageWidth(in: pdfView)
             }
 
             if let page, let pagePoint {
@@ -193,6 +252,8 @@ struct PDFKitRepresentedView: NSViewRepresentable {
         }
 
         private var isSyncScheduled = false
+        private var isFitScheduled = false
+        private var isWidthFitted = true
         private var pendingSyncSnapshot: PDFViewSyncSnapshot?
         private var lastAppliedSyncSnapshot: PDFViewSyncSnapshot?
     }
@@ -212,6 +273,12 @@ private struct PDFViewSyncSnapshot: Equatable {
 
 private final class DoubleClickPDFView: PDFView {
     var doubleClickHandler: ((DoubleClickPDFView, NSEvent) -> Void)?
+    var layoutHandler: ((DoubleClickPDFView) -> Void)?
+
+    override func layout() {
+        super.layout()
+        layoutHandler?(self)
+    }
 
     override func mouseDown(with event: NSEvent) {
         if event.clickCount == 2 {

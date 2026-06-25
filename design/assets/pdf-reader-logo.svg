@@ -1,62 +1,121 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="70" y1="58" x2="442" y2="448" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFF8E8"/>
-      <stop offset="0.45" stop-color="#EAF3FF"/>
-      <stop offset="1" stop-color="#D4FFE8"/>
+    <linearGradient id="baseDepth" x1="85" y1="66" x2="424" y2="461" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#183C7A" stop-opacity="0.26"/>
+      <stop offset="0.52" stop-color="#123060" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#19BDA6" stop-opacity="0.28"/>
     </linearGradient>
-    <linearGradient id="bookLeft" x1="112" y1="124" x2="256" y2="389" gradientUnits="userSpaceOnUse">
+    <linearGradient id="tile" x1="70" y1="48" x2="440" y2="442" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCFFFF"/>
+      <stop offset="0.34" stop-color="#EEF8FF"/>
+      <stop offset="0.66" stop-color="#DDF1FF"/>
+      <stop offset="1" stop-color="#CEFBE7"/>
+    </linearGradient>
+    <linearGradient id="tileRim" x1="74" y1="60" x2="422" y2="436" gradientUnits="userSpaceOnUse">
       <stop stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#EFF6FF"/>
+      <stop offset="0.58" stop-color="#C5DDFE"/>
+      <stop offset="1" stop-color="#AEEFD9"/>
     </linearGradient>
-    <linearGradient id="bookRight" x1="256" y1="124" x2="400" y2="389" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FAFDFF"/>
-      <stop offset="1" stop-color="#EDF7F2"/>
+    <linearGradient id="pageLeft" x1="132" y1="119" x2="254" y2="362" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="0.46" stop-color="#F8FCFF"/>
+      <stop offset="1" stop-color="#DCEBFF"/>
     </linearGradient>
-    <linearGradient id="orbitMint" x1="122" y1="332" x2="410" y2="332" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#4EE6A5"/>
-      <stop offset="0.55" stop-color="#7DF9C5"/>
-      <stop offset="1" stop-color="#35D399"/>
+    <linearGradient id="pageRight" x1="270" y1="120" x2="380" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="0.48" stop-color="#F4FFF9"/>
+      <stop offset="1" stop-color="#C7F5DF"/>
     </linearGradient>
-    <linearGradient id="orbitInk" x1="126" y1="318" x2="418" y2="318" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#111827"/>
-      <stop offset="0.62" stop-color="#0F1F38"/>
-      <stop offset="1" stop-color="#12271F"/>
+    <linearGradient id="pageFold" x1="249" y1="134" x2="266" y2="355" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.72"/>
+      <stop offset="0.44" stop-color="#8FA4C8" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#07152E" stop-opacity="0.28"/>
     </linearGradient>
-    <filter id="iconShadow" x="36" y="30" width="440" height="444" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#23405B" flood-opacity="0.18"/>
+    <linearGradient id="arc" x1="126" y1="294" x2="390" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1B69FF"/>
+      <stop offset="0.48" stop-color="#1B9BFF"/>
+      <stop offset="1" stop-color="#18C8A6"/>
+    </linearGradient>
+    <linearGradient id="arcHighlight" x1="142" y1="246" x2="376" y2="211" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.70"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.12"/>
+    </linearGradient>
+    <radialGradient id="tileGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(300 214) rotate(97) scale(220 232)">
+      <stop stop-color="#4EDFFF" stop-opacity="0.42"/>
+      <stop offset="0.50" stop-color="#35E9B9" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blueNode" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(136 271) rotate(57) scale(55)">
+      <stop stop-color="#BFD9FF"/>
+      <stop offset="0.28" stop-color="#2A76FF"/>
+      <stop offset="1" stop-color="#0F56E8"/>
+    </radialGradient>
+    <radialGradient id="greenNode" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(254 190) rotate(56) scale(52)">
+      <stop stop-color="#CFFFF6"/>
+      <stop offset="0.30" stop-color="#26CDB7"/>
+      <stop offset="1" stop-color="#0E9F90"/>
+    </radialGradient>
+    <radialGradient id="darkNode" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(369 218) rotate(55) scale(48)">
+      <stop stop-color="#586985"/>
+      <stop offset="0.34" stop-color="#13203B"/>
+      <stop offset="1" stop-color="#09142C"/>
+    </radialGradient>
+    <filter id="tileShadow" x="24" y="20" width="470" height="470" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="20" flood-color="#061B3E" flood-opacity="0.28"/>
+      <feDropShadow dx="14" dy="22" stdDeviation="34" flood-color="#1FC4A9" flood-opacity="0.16"/>
     </filter>
-    <filter id="bookShadow" x="82" y="78" width="358" height="350" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#1F3B57" flood-opacity="0.18"/>
+    <filter id="pageShadow" x="92" y="92" width="344" height="330" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="15" flood-color="#091A39" flood-opacity="0.24"/>
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#3F6D9D" flood-opacity="0.16"/>
+    </filter>
+    <filter id="arcShadow" x="92" y="170" width="328" height="160" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="13" stdDeviation="8" flood-color="#071C45" flood-opacity="0.30"/>
+    </filter>
+    <filter id="nodeShadow" x="92" y="152" width="332" height="190" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="13" stdDeviation="10" flood-color="#071A3B" flood-opacity="0.30"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#2C87FF" flood-opacity="0.18"/>
     </filter>
   </defs>
 
-  <rect x="56" y="48" width="400" height="400" rx="92" fill="url(#bg)" filter="url(#iconShadow)"/>
-  <rect x="61" y="53" width="390" height="390" rx="87" stroke="white" stroke-opacity="0.78" stroke-width="10"/>
+  <rect x="64" y="68" width="394" height="392" rx="99" fill="url(#baseDepth)"/>
+  <rect x="56" y="44" width="400" height="400" rx="98" fill="url(#tile)" filter="url(#tileShadow)"/>
+  <path d="M88 70C100 56 118 50 142 50H362C416 50 450 86 450 140V356C450 376 445 394 434 408C454 360 443 300 425 257C398 192 344 145 282 115C216 83 146 64 88 70Z" fill="white" fill-opacity="0.52"/>
+  <rect x="66" y="54" width="380" height="380" rx="90" stroke="white" stroke-opacity="0.90" stroke-width="11"/>
+  <rect x="92" y="82" width="328" height="328" rx="74" stroke="url(#tileRim)" stroke-opacity="0.58" stroke-width="8"/>
+  <circle cx="288" cy="225" r="182" fill="url(#tileGlow)"/>
+  <path d="M126 395C194 419 315 419 386 391C357 417 318 430 257 430C195 430 154 418 126 395Z" fill="#0F315D" fill-opacity="0.10"/>
 
-  <g filter="url(#bookShadow)">
-    <path d="M116 154C116 135.222 131.222 120 150 120H256V386H150C131.222 386 116 370.778 116 352V154Z" fill="url(#bookLeft)"/>
-    <path d="M256 120H362C380.778 120 396 135.222 396 154V352C396 370.778 380.778 386 362 386H256V120Z" fill="url(#bookRight)"/>
-    <path d="M256 124V382" stroke="#CAD6E4" stroke-width="6"/>
-    <path d="M256 120C240 131 229 151 229 175V360C229 370 238 379 256 386V120Z" fill="#DDE8F5" fill-opacity="0.42"/>
-    <path d="M256 120C272 131 283 151 283 175V360C283 370 274 379 256 386V120Z" fill="#CAD6E4" fill-opacity="0.30"/>
-
-    <path d="M153 189H226" stroke="#0B84FF" stroke-width="15" stroke-linecap="round"/>
-    <path d="M287 189H359" stroke="#5DA8F7" stroke-width="15" stroke-linecap="round"/>
-    <path d="M153 235H218" stroke="#8A94A6" stroke-width="12" stroke-linecap="round" stroke-opacity="0.23"/>
-    <path d="M287 235H347" stroke="#8A94A6" stroke-width="12" stroke-linecap="round" stroke-opacity="0.23"/>
-    <path d="M153 280H207" stroke="#8A94A6" stroke-width="12" stroke-linecap="round" stroke-opacity="0.18"/>
-    <path d="M287 280H336" stroke="#8A94A6" stroke-width="12" stroke-linecap="round" stroke-opacity="0.18"/>
-
-    <path d="M329 120V175L352 156L374 175V126C370 122 365 120 362 120H329Z" fill="#FFB627"/>
+  <g filter="url(#pageShadow)">
+    <path d="M256 139C225 124 179 124 151 141C137 149 130 163 130 180V344C171 323 212 326 256 363V139Z" fill="#081833" fill-opacity="0.20"/>
+    <path d="M256 139C287 124 333 124 361 141C375 149 382 163 382 180V344C341 323 300 326 256 363V139Z" fill="#081833" fill-opacity="0.16"/>
+    <path d="M256 129C227 116 181 117 152 135C139 143 132 156 132 173V337C172 317 214 320 256 356V129Z" fill="url(#pageLeft)"/>
+    <path d="M256 129C285 116 331 117 360 135C373 143 380 156 380 173V337C340 317 298 320 256 356V129Z" fill="url(#pageRight)"/>
+    <path d="M150 152C178 139 217 140 248 153" stroke="white" stroke-opacity="0.52" stroke-width="5" stroke-linecap="round"/>
+    <path d="M264 153C296 140 334 139 361 152" stroke="white" stroke-opacity="0.44" stroke-width="5" stroke-linecap="round"/>
+    <path d="M256 132V354" stroke="#111C35" stroke-width="15" stroke-linecap="round"/>
+    <path d="M256 132C227 116 181 117 152 135C139 143 132 156 132 173V337C172 317 214 320 256 356" stroke="#111C35" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M256 132C285 116 331 117 360 135C373 143 380 156 380 173V337C340 317 298 320 256 356" stroke="#111C35" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M250 139V343" stroke="url(#pageFold)" stroke-width="5" stroke-linecap="round"/>
   </g>
 
-  <path d="M133 353C183 314 239 294 301 296C345 297 384 313 418 343" stroke="url(#orbitMint)" stroke-width="18" stroke-linecap="round"/>
-  <path d="M134 347C182 303 239 280 303 280C349 280 388 296 420 326" stroke="url(#orbitInk)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M132 297C178 218 257 186 382 234" stroke="#071833" stroke-opacity="0.24" stroke-width="38" stroke-linecap="round" filter="url(#arcShadow)"/>
+  <path d="M132 294C178 215 257 184 382 232" stroke="url(#arc)" stroke-width="30" stroke-linecap="round" filter="url(#arcShadow)"/>
+  <path d="M142 281C189 221 261 199 371 238" stroke="url(#arcHighlight)" stroke-width="10" stroke-linecap="round"/>
 
-  <circle cx="184" cy="320" r="24" fill="#FFB627" stroke="#111827" stroke-width="9"/>
-  <circle cx="276" cy="288" r="25" fill="#0B84FF" stroke="#111827" stroke-width="9"/>
-  <circle cx="365" cy="305" r="24" fill="#2A8C55" stroke="#111827" stroke-width="9"/>
+  <g filter="url(#nodeShadow)">
+    <circle cx="145" cy="286" r="33" fill="#FFFFFF"/>
+    <circle cx="145" cy="286" r="25" fill="url(#blueNode)"/>
+    <circle cx="137" cy="276" r="7" fill="white" fill-opacity="0.60"/>
 
-  <path d="M142 137L148 151L163 157L148 163L142 177L136 163L121 157L136 151L142 137Z" fill="#0B84FF"/>
+    <circle cx="263" cy="203" r="33" fill="#FFFFFF"/>
+    <circle cx="263" cy="203" r="25" fill="url(#greenNode)"/>
+    <circle cx="255" cy="193" r="7" fill="white" fill-opacity="0.62"/>
+
+    <circle cx="377" cy="231" r="30" fill="#FFFFFF"/>
+    <circle cx="377" cy="231" r="23" fill="url(#darkNode)"/>
+    <circle cx="370" cy="222" r="6" fill="white" fill-opacity="0.36"/>
+  </g>
+
+  <path d="M124 126L131 144L150 151L131 159L124 177L116 159L98 151L116 144L124 126Z" fill="#1B69FF" fill-opacity="0.90"/>
+  <path d="M390 337L396 351L410 356L396 362L390 376L383 362L370 356L383 351L390 337Z" fill="#18C8A6" fill-opacity="0.82"/>
 </svg>

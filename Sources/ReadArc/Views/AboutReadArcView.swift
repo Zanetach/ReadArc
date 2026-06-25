@@ -2,9 +2,19 @@ import SwiftUI
 
 struct AboutReadArcView: View {
     let repositoryURL: URL?
+    @State private var releaseVersionText: String?
+    @State private var releaseLookupDidFinish = false
 
     private var versionText: String {
-        "Version \(Bundle.main.readArcDisplayVersion)"
+        if let releaseVersionText {
+            return "Version \(releaseVersionText)"
+        }
+
+        if releaseLookupDidFinish {
+            return "Local build \(Bundle.main.readArcDisplayVersion)"
+        }
+
+        return "Checking release..."
     }
 
     var body: some View {
@@ -72,6 +82,26 @@ struct AboutReadArcView: View {
         }
         .frame(width: 320)
         .background(NativeProTheme.inspector.opacity(0.92))
+        .task {
+            await loadReleaseVersion()
+        }
+    }
+
+    @MainActor
+    private func loadReleaseVersion() async {
+        guard releaseVersionText == nil, !releaseLookupDidFinish else {
+            return
+        }
+
+        defer {
+            releaseLookupDidFinish = true
+        }
+
+        do {
+            releaseVersionText = try await AppUpdateChecker.latestReleaseVersion()
+        } catch {
+            releaseVersionText = nil
+        }
     }
 }
 
