@@ -13,6 +13,7 @@
   <img alt="macOS" src="https://img.shields.io/badge/macOS-14%2B-111827">
   <img alt="Swift" src="https://img.shields.io/badge/Swift-6.0-f05138">
   <img alt="Architecture" src="https://img.shields.io/badge/Apple%20Silicon-arm64-34d399">
+  <img alt="License" src="https://img.shields.io/badge/license-use--only-red">
 </p>
 
 ReadArc 是一个基于 `SwiftUI` + `PDFKit` 的原生 macOS PDF 阅读器。它首先是一个干净、快速的 PDF 阅读工具，同时在右侧提供 Chat、Focus、Research 工作区，用于基于当前 PDF 进行总结、解释、搜索、目录梳理和思维导图生成。
@@ -28,6 +29,7 @@ ReadArc 是一个基于 `SwiftUI` + `PDFKit` 的原生 macOS PDF 阅读器。它
 | 系统 | macOS 14 或更高 |
 | 芯片 | Apple Silicon |
 | 签名 | Ad-hoc signed, not notarized |
+| License | Proprietary use-only |
 
 > 当前构建机器没有配置 Apple Developer ID 证书和公证资料，因此 GitHub Release 中的 DMG 是 ad-hoc 签名且未公证。首次打开时，macOS 可能需要右键点击 `ReadArc.app` 选择 **Open**，或在 **System Settings > Privacy & Security** 中允许打开。
 
@@ -189,6 +191,15 @@ script/release_github.sh         DMG and GitHub Release publisher
 script/stress_pdf_performance.sh large PDF performance sampler
 ```
 
+## License
+
+ReadArc is source-available but not open source. Users are granted only the
+right to download, install, and use the official ReadArc application. Modification,
+redistribution, sublicensing, derivative works, and publishing modified or
+unmodified builds are not permitted without prior written permission.
+
+See [LICENSE](LICENSE) for the full proprietary use-only license.
+
 ## English Summary
 
 ReadArc is a native macOS PDF reader built with SwiftUI and PDFKit. It keeps PDF reading visible and local, then adds optional Codex / Claude Code assistance for summaries, search-backed answers, outlines, mind maps, notes, and research workflows. The current public release ships as an Apple Silicon DMG.
@@ -198,4 +209,4 @@ ReadArc is a native macOS PDF reader built with SwiftUI and PDFKit. It keeps PDF
 - ReadArc is not configured for Mac App Store distribution.
 - The current public DMG is ad-hoc signed and not notarized.
 - Codex and Claude Code support depends on the corresponding local CLI tools being installed.
-- No license file is currently included in this repository.
+- ReadArc is licensed under a proprietary use-only license.
