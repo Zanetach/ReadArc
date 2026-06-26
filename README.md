@@ -1,11 +1,11 @@
 # ReadArc
 
 <p align="center">
-  <img src="design/assets/readarc-readme-hero.svg" alt="ReadArc macOS PDF reader with thumbnails, PDF canvas, and agent workspace" width="100%">
+  <img src="docs/readarc-hero.png" alt="ReadArc macOS PDF reader with command rail, PDF canvas, and floating toolbar" width="100%">
 </p>
 
 <p align="center">
-  Native macOS PDF reading with thumbnails, local search, a reusable library folder, and optional Codex / Claude Code assistance.
+  Native macOS PDF reading with a responsive canvas, reusable library folder, local search, and optional Codex / Claude Code assistance.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
   <img alt="Architecture" src="https://img.shields.io/badge/Apple%20Silicon-arm64-34d399">
 </p>
 
-ReadArc keeps PDF rendering native with `PDFKit`, then adds a document-aware workspace for search evidence, page thumbnails, outline review, and optional local agent chat. The default path stays reader-first: opening a PDF takes you into the document, while Chat, Focus, Research, the Library, and the floating toolbar remain available when needed.
+ReadArc keeps PDF rendering native with `PDFKit`, then adds a document-aware workspace for thumbnails, local search, outline review, quick actions, and optional local agent chat. The default path stays reader-first: opening a PDF takes you into the document, while Chat, Focus, Research, the Library, and the floating toolbar remain available when needed.
 
 ## Download
 
@@ -27,8 +27,8 @@ Current public artifact:
 
 | Item | Value |
 | --- | --- |
-| Release | `v0.2.11` |
-| Artifact | `ReadArc-0.2.11-macOS-arm64.dmg` |
+| Release | `v0.2.12` |
+| Artifact | `ReadArc-0.2.12-macOS-arm64.dmg` |
 | System | macOS 14 or later |
 | CPU | Apple Silicon |
 | Signing | Ad-hoc signed, not notarized |
@@ -39,14 +39,16 @@ Current public artifact:
 
 | Area | Details |
 | --- | --- |
-| Native PDF reading | Opens local PDFs with `PDFView`, page navigation, zoom controls, fit-to-view, and double-click zoom. |
+| Native PDF reading | Opens local PDFs with `PDFView`, page navigation, zoom controls, fit-to-view, double-click zoom, text selection, and drag-to-pan mode. |
 | ReadArc Library | Lets the user choose a library folder once, imports PDFs there, and reuses that folder permission for future reading, Chat, search, thumbnails, and indexing. |
-| Page thumbnails | Shows a thumbnail rail for PDF navigation, with cached thumbnail rendering and a compact left command rail. |
-| Search and evidence | Searches the current PDF, bounds result memory, and jumps to exact match positions with PDFKit highlighting. |
+| Page thumbnails | Shows a toggleable thumbnail rail for PDF navigation, with cached thumbnail rendering and a compact left command rail. |
+| Search | Searches the current PDF, bounds result memory, and jumps to exact match positions with PDFKit highlighting. The search popover now lives in the floating toolbar. |
 | Agent chat | Uses local Codex or Claude Code when available, streams responses, shows timestamps and elapsed time, supports copy actions, and formats structured answers as readable cards. |
-| Focus and Research panels | Keeps current-page context, search results, outline, source evidence, and document metadata in the right-side workspace. |
-| Performance guardrails | Bounds search results, cached page text, thumbnails, chat history, and unusually long streamed agent output. |
+| Mind maps | Detects common outline / mind-map style responses and renders them as nested visual nodes instead of raw text blocks. |
+| Focus and Research panels | Keeps summaries, search matches, outline, document metadata, and quick research actions in the right-side workspace. |
+| Performance guardrails | Bounds search results, cached page text, thumbnails, chat history, and unusually long streamed agent output. Stale recent PDFs are removed with a friendly message. |
 | Appearance | Light, dark, and follow-system themes with Chinese and English UI modes. |
+| Window behavior | Keeps one main window active for quick-open flows, supports standard macOS resizing, and disables stale state restoration. |
 | Release tooling | Builds `.app`, packages a macOS DMG, emits SHA-256 checksums, and publishes GitHub Releases. |
 
 ## Privacy and File Access
@@ -116,13 +118,13 @@ swift build -c release --build-system native
 Create a local Apple Silicon DMG:
 
 ```bash
-./script/release_github.sh --version 0.2.11 --ad-hoc --skip-notary --format dmg
+./script/release_github.sh --version 0.2.12 --ad-hoc --skip-notary --format dmg
 ```
 
 Publish a GitHub Release with the ad-hoc Apple Silicon DMG:
 
 ```bash
-./script/release_github.sh --version 0.2.11 --publish --ready --ad-hoc --skip-notary --format dmg
+./script/release_github.sh --version 0.2.12 --publish --ready --ad-hoc --skip-notary --format dmg
 ```
 
 Create a Developer ID signed and notarized release when Apple credentials are configured:
@@ -130,7 +132,7 @@ Create a Developer ID signed and notarized release when Apple credentials are co
 ```bash
 READARC_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 READARC_NOTARY_PROFILE="readarc-notary" \
-./script/release_github.sh --version 0.2.11 --publish --ready --format dmg
+./script/release_github.sh --version 0.2.12 --publish --ready --format dmg
 ```
 
 Store notarization credentials once:
@@ -164,6 +166,7 @@ Reports are written to `dist/stress-reports/`.
 Sources/ReadArc/                 macOS SwiftUI app
 Sources/ReadArcCore/             parsers, prompt builders, stores, formatters
 Sources/ReadArcCoreSmokeTests/   executable smoke tests
+docs/                            README screenshots and documentation images
 design/assets/                   README and product assets
 design/logo-options/             logo exploration assets
 design/screenshots/              UI verification screenshots

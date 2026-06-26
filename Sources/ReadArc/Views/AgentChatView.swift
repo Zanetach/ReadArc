@@ -429,6 +429,8 @@ private struct ChatPanelMetrics: Equatable {
     var answerCardPadding: CGFloat { 9 + scale * 2 }
     var answerCardCornerRadius: CGFloat { 10 + scale * 2 }
     var answerChildSpacing: CGFloat { 5 + scale * 1 }
+    var mindMapNodeSpacing: CGFloat { 8 + scale * 2 }
+    var mindMapBranchPadding: CGFloat { 9 + scale * 2 }
     var avatarSize: CGFloat { 25 + scale * 5 }
     var avatarIconFont: CGFloat { 12 + scale * 2 }
     var composerGap: CGFloat { 8 + scale * 2 }
@@ -689,10 +691,148 @@ private struct AgentFormattedMessageView: View {
                         pageReference: pageReference,
                         metrics: metrics
                     )
+                case .mindMap(let mindMap):
+                    AgentMindMapView(mindMap: mindMap, metrics: metrics)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct AgentMindMapView: View {
+    let mindMap: AgentMindMap
+    let metrics: ChatPanelMetrics
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: metrics.mindMapNodeSpacing) {
+            rootNode
+
+            VStack(alignment: .leading, spacing: metrics.answerBlockSpacing) {
+                ForEach(Array(mindMap.branches.enumerated()), id: \.element.id) { item in
+                    AgentMindMapBranchView(
+                        branch: item.element,
+                        branchNumber: item.offset + 1,
+                        metrics: metrics
+                    )
+                }
+            }
+        }
+        .padding(metrics.answerCardPadding + 1)
+        .background(
+            NativeProTheme.tile.opacity(0.60),
+            in: RoundedRectangle(cornerRadius: metrics.answerCardCornerRadius + 2, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: metrics.answerCardCornerRadius + 2, style: .continuous)
+                .stroke(NativeProTheme.separator.opacity(0.70), lineWidth: 1)
+        }
+    }
+
+    private var rootNode: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: "point.3.connected.trianglepath.dotted")
+                .font(.system(size: metrics.bodyFont, weight: .semibold))
+                .foregroundStyle(NativeProTheme.accent)
+                .frame(width: 20, height: 20)
+                .background(NativeProTheme.selection.opacity(0.70), in: Circle())
+
+            InlineMarkdownText(
+                text: mindMap.root,
+                font: .system(size: metrics.bodyFont + 0.5, weight: .semibold),
+                color: NativeProTheme.ink
+            )
+        }
+        .padding(.horizontal, metrics.mindMapBranchPadding)
+        .padding(.vertical, metrics.mindMapBranchPadding - 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            NativeProTheme.panel.opacity(0.74),
+            in: RoundedRectangle(cornerRadius: metrics.answerCardCornerRadius, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: metrics.answerCardCornerRadius, style: .continuous)
+                .stroke(NativeProTheme.accent.opacity(0.16), lineWidth: 1)
+        }
+    }
+}
+
+private struct AgentMindMapBranchView: View {
+    let branch: AgentMindMapBranch
+    let branchNumber: Int
+    let metrics: ChatPanelMetrics
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(spacing: 0) {
+                Text("\(branchNumber)")
+                    .font(.system(size: metrics.captionFont, weight: .bold, design: .rounded))
+                    .foregroundStyle(NativeProTheme.accent)
+                    .frame(width: 20, height: 20)
+                    .background(NativeProTheme.selection.opacity(0.72), in: Circle())
+
+                Rectangle()
+                    .fill(NativeProTheme.accent.opacity(0.22))
+                    .frame(width: 1, height: connectorHeight)
+                    .padding(.vertical, 4)
+            }
+            .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: metrics.answerChildSpacing + 2) {
+                InlineMarkdownText(
+                    text: branch.title,
+                    font: .system(size: metrics.bodyFont, weight: .semibold),
+                    color: NativeProTheme.ink
+                )
+
+                if !branch.children.isEmpty {
+                    VStack(alignment: .leading, spacing: metrics.answerChildSpacing) {
+                        ForEach(Array(branch.children.enumerated()), id: \.offset) { item in
+                            AgentMindMapLeafView(text: item.element, metrics: metrics)
+                        }
+                    }
+                    .padding(.top, 1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(metrics.mindMapBranchPadding)
+        .background(
+            NativeProTheme.panel.opacity(0.58),
+            in: RoundedRectangle(cornerRadius: metrics.answerCardCornerRadius, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: metrics.answerCardCornerRadius, style: .continuous)
+                .stroke(NativeProTheme.separator.opacity(0.58), lineWidth: 1)
+        }
+    }
+
+    private var connectorHeight: CGFloat {
+        guard !branch.children.isEmpty else {
+            return 12
+        }
+        return min(58, CGFloat(branch.children.count) * (metrics.bodyFont + metrics.answerChildSpacing))
+    }
+}
+
+private struct AgentMindMapLeafView: View {
+    let text: String
+    let metrics: ChatPanelMetrics
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Circle()
+                .fill(NativeProTheme.success.opacity(0.70))
+                .frame(width: 4.5, height: 4.5)
+                .offset(y: -1)
+
+            InlineMarkdownText(
+                text: text,
+                font: .system(size: metrics.bodyFont - 0.5),
+                color: NativeProTheme.ink.opacity(0.82)
+            )
+            .lineSpacing(1.5)
+        }
     }
 }
 
@@ -854,10 +994,22 @@ private struct AgentAnswerBlock: Identifiable, Equatable {
     enum Kind: Equatable {
         case paragraph(String)
         case item(title: String?, body: String, children: [String], pageReference: String?)
+        case mindMap(AgentMindMap)
     }
 
     let id: Int
     let kind: Kind
+}
+
+private struct AgentMindMap: Equatable {
+    let root: String
+    let branches: [AgentMindMapBranch]
+}
+
+private struct AgentMindMapBranch: Identifiable, Equatable {
+    let id: Int
+    let title: String
+    let children: [String]
 }
 
 private enum AgentAnswerParser {
@@ -871,10 +1023,15 @@ private enum AgentAnswerParser {
     private enum PendingBlock {
         case paragraph(String)
         case item(PendingItem)
+        case mindMap(AgentMindMap)
     }
 
     static func blocks(from rawText: String) -> [AgentAnswerBlock] {
         let normalized = rawText.replacingOccurrences(of: "\r\n", with: "\n")
+        if let mindMap = mindMap(from: normalized) {
+            return [AgentAnswerBlock(id: 0, kind: .mindMap(mindMap))]
+        }
+
         let lines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var pendingBlocks: [PendingBlock] = []
         var paragraphLines: [String] = []
@@ -947,8 +1104,182 @@ private enum AgentAnswerParser {
                         pageReference: item.pageReference
                     )
                 )
+            case .mindMap(let mindMap):
+                return AgentAnswerBlock(id: index, kind: .mindMap(mindMap))
             }
         }
+    }
+
+    private struct BranchDraft {
+        var title: String
+        var children: [String]
+    }
+
+    private static func mindMap(from rawText: String) -> AgentMindMap? {
+        if let mermaid = mermaidMindMap(from: rawText) {
+            return mermaid
+        }
+        return treeMindMap(from: rawText)
+    }
+
+    private static func treeMindMap(from rawText: String) -> AgentMindMap? {
+        guard rawText.contains("├─") || rawText.contains("└─") else {
+            return nil
+        }
+
+        let lines = semanticLines(from: rawText)
+        guard let firstTreeIndex = lines.firstIndex(where: hasTreeMarker(in:)) else {
+            return nil
+        }
+
+        let rootCandidates = lines[..<firstTreeIndex]
+            .map { cleanMindMapText($0) }
+            .filter { !$0.isEmpty && !isMindMapIntro($0) }
+        guard let root = rootCandidates.last else {
+            return nil
+        }
+
+        var drafts: [BranchDraft] = []
+
+        for line in lines[firstTreeIndex...] {
+            guard let node = treeNode(in: line) else {
+                continue
+            }
+
+            if node.level <= 1 {
+                drafts.append(BranchDraft(title: node.text, children: []))
+            } else if !drafts.isEmpty {
+                drafts[drafts.count - 1].children.append(node.text)
+            }
+        }
+
+        let branches = drafts
+            .filter { !$0.title.isEmpty || !$0.children.isEmpty }
+            .enumerated()
+            .map { index, draft in
+                AgentMindMapBranch(id: index, title: draft.title, children: draft.children)
+            }
+
+        guard !branches.isEmpty else {
+            return nil
+        }
+
+        return AgentMindMap(root: root, branches: branches)
+    }
+
+    private static func mermaidMindMap(from rawText: String) -> AgentMindMap? {
+        let lines = semanticLines(from: rawText)
+        guard lines.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare("mindmap") == .orderedSame }) else {
+            return nil
+        }
+
+        let nodes = lines.compactMap { line -> (indent: Int, text: String)? in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty,
+                  trimmed.caseInsensitiveCompare("mindmap") != .orderedSame else {
+                return nil
+            }
+
+            let text = cleanMermaidMindMapText(trimmed)
+            guard !text.isEmpty else {
+                return nil
+            }
+
+            return (leadingWhitespaceCount(in: line), text)
+        }
+
+        guard let rootNode = nodes.first else {
+            return nil
+        }
+
+        let branchIndent = nodes
+            .dropFirst()
+            .map(\.indent)
+            .filter { $0 > rootNode.indent }
+            .min()
+
+        guard let branchIndent else {
+            return nil
+        }
+
+        var drafts: [BranchDraft] = []
+        for node in nodes.dropFirst() {
+            if node.indent == branchIndent {
+                drafts.append(BranchDraft(title: node.text, children: []))
+            } else if node.indent > branchIndent, !drafts.isEmpty {
+                drafts[drafts.count - 1].children.append(node.text)
+            }
+        }
+
+        let branches = drafts.enumerated().map { index, draft in
+            AgentMindMapBranch(id: index, title: draft.title, children: draft.children)
+        }
+
+        guard !branches.isEmpty else {
+            return nil
+        }
+
+        return AgentMindMap(root: rootNode.text, branches: branches)
+    }
+
+    private static func semanticLines(from rawText: String) -> [String] {
+        rawText
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+            .filter { line in
+                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                return !trimmed.isEmpty && !trimmed.hasPrefix("```")
+            }
+    }
+
+    private static func hasTreeMarker(in line: String) -> Bool {
+        line.contains("├─") || line.contains("└─")
+    }
+
+    private static func treeNode(in line: String) -> (level: Int, text: String)? {
+        let markerRange = line.range(of: "├─", options: .backwards) ?? line.range(of: "└─", options: .backwards)
+        guard let markerRange else {
+            return nil
+        }
+
+        let prefix = String(line[..<markerRange.lowerBound])
+        let text = cleanMindMapText(String(line[markerRange.upperBound...]))
+        guard !text.isEmpty else {
+            return nil
+        }
+
+        let verticalCount = prefix.filter { $0 == "│" }.count
+        let spaceCount = prefix.filter { $0 == " " }.count
+        let level = max(1, verticalCount + (spaceCount / 3) + 1)
+        return (level, text)
+    }
+
+    private static func isMindMapIntro(_ line: String) -> Bool {
+        let lowercased = line.lowercased()
+        return line.hasSuffix("思维导图：")
+            || line.hasSuffix("思维导图:")
+            || lowercased.hasSuffix("mind map:")
+            || lowercased.hasSuffix("mindmap:")
+    }
+
+    private static func cleanMindMapText(_ text: String) -> String {
+        cleanInlineMarkdown(text)
+            .replacingOccurrences(of: "```text", with: "")
+            .replacingOccurrences(of: "```mermaid", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func cleanMermaidMindMapText(_ text: String) -> String {
+        var output = text
+            .replacingOccurrences(of: "root", with: "")
+            .replacingOccurrences(of: "((", with: "")
+            .replacingOccurrences(of: "))", with: "")
+            .replacingOccurrences(of: "[", with: "")
+            .replacingOccurrences(of: "]", with: "")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+        output = output.trimmingCharacters(in: CharacterSet(charactersIn: " \t\"'"))
+        return cleanInlineMarkdown(output)
     }
 
     private static func item(from content: String) -> PendingItem {

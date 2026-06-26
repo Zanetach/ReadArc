@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DetailView: View {
     @ObservedObject var model: ReaderModel
+    @State private var activeTool: ReaderCanvasTool = .selectText
 
     var body: some View {
         VStack(spacing: 0) {
@@ -12,11 +13,11 @@ struct DetailView: View {
             } else {
                 GeometryReader { proxy in
                     ZStack(alignment: .bottom) {
-                        PDFKitRepresentedView(model: model)
+                        PDFKitRepresentedView(model: model, interactionTool: activeTool)
                             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                             .shadow(color: NativeProTheme.surfaceShadow.opacity(0.66), radius: 24, x: 0, y: 14)
 
-                        ReaderCanvasControls(model: model, availableWidth: proxy.size.width)
+                        ReaderCanvasControls(model: model, availableWidth: proxy.size.width, activeTool: $activeTool)
                             .padding(.horizontal, 12)
                             .padding(.bottom, proxy.size.height < 560 ? 22 : 44)
                     }
@@ -41,9 +42,9 @@ private struct ReaderCanvasBackground: View {
 private struct ReaderCanvasControls: View {
     @ObservedObject var model: ReaderModel
     let availableWidth: CGFloat
+    @Binding var activeTool: ReaderCanvasTool
     @Environment(\.appLanguage) private var language
     @SceneStorage("readerCanvasControls.isCollapsed") private var isCollapsed = false
-    @State private var activeTool: CanvasTool = .select
     @State private var isSearchPresented = false
 
     var body: some View {
@@ -63,9 +64,9 @@ private struct ReaderCanvasControls: View {
 
     private func expandedToolbar(metrics: CanvasControlsMetrics) -> some View {
         HStack(spacing: 0) {
-            toolButton(.select, systemImage: "cursorarrow", metrics: metrics)
+            toolButton(.selectText, systemImage: "cursorarrow", metrics: metrics)
             ToolbarDivider(height: metrics.dividerHeight)
-            toolButton(.pan, systemImage: "hand.raised", metrics: metrics)
+            toolButton(.panPage, systemImage: "hand.raised", metrics: metrics)
             ToolbarDivider(height: metrics.dividerHeight)
             actionButton("minus", metrics: metrics) {
                 model.send(.zoomOut)
@@ -130,7 +131,7 @@ private struct ReaderCanvasControls: View {
             .contentShape(Rectangle())
     }
 
-    private func toolButton(_ tool: CanvasTool, systemImage: String, metrics: CanvasControlsMetrics) -> some View {
+    private func toolButton(_ tool: ReaderCanvasTool, systemImage: String, metrics: CanvasControlsMetrics) -> some View {
         Button {
             activeTool = tool
         } label: {
@@ -138,7 +139,8 @@ private struct ReaderCanvasControls: View {
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
-        .help(tool.title)
+        .help(language.text(tool.titleKey))
+        .accessibilityLabel(language.text(tool.titleKey))
     }
 
     private func actionButton(_ systemImage: String, metrics: CanvasControlsMetrics, action: @escaping () -> Void) -> some View {
@@ -363,20 +365,6 @@ private struct CanvasSearchPopover: View {
         .buttonStyle(.plain)
         .foregroundStyle(NativeProTheme.ink)
         .help(title)
-    }
-}
-
-private enum CanvasTool {
-    case select
-    case pan
-
-    var title: String {
-        switch self {
-        case .select:
-            return "Select"
-        case .pan:
-            return "Pan"
-        }
     }
 }
 

@@ -175,6 +175,11 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func openPDF(url: URL, bookmarkData: Data? = nil) {
+        guard fileExistsForReading(url: url, bookmarkData: bookmarkData) else {
+            handleMissingPDF(at: url)
+            return
+        }
+
         guard isURLInsideLibrary(url) || confirmFileAccessPrimerIfNeeded(for: url) else {
             return
         }
@@ -328,14 +333,12 @@ final class ReaderModel: NSObject, ObservableObject {
 
     private func load(url: URL, bookmarkData: Data? = nil) {
         guard url.pathExtension.lowercased() == "pdf" else {
-            errorMessage = "The selected file is not a PDF."
+            errorMessage = currentAppLanguage.text("openPDF.error.notPDF")
             return
         }
 
-        guard Self.withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData, { scopedURL in
-            FileManager.default.fileExists(atPath: scopedURL.path)
-        }) else {
-            errorMessage = "The file no longer exists."
+        guard fileExistsForReading(url: url, bookmarkData: bookmarkData) else {
+            handleMissingPDF(at: url)
             return
         }
 
@@ -386,7 +389,7 @@ final class ReaderModel: NSObject, ObservableObject {
 
                 guard let payload else {
                     self.isLoadingDocument = false
-                    self.errorMessage = "The PDF could not be opened."
+                    self.errorMessage = self.currentAppLanguage.text("openPDF.error.failed")
                     return
                 }
 
@@ -429,9 +432,14 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func openExternalFile(_ url: URL) {
+        let sourceBookmarkData = Self.makeSecurityScopedBookmark(for: url)
+        guard fileExistsForReading(url: url, bookmarkData: sourceBookmarkData) else {
+            handleMissingPDF(at: url)
+            return
+        }
+
         promptForLibraryFolderIfNeeded()
 
-        let sourceBookmarkData = Self.makeSecurityScopedBookmark(for: url)
         if let libraryDocument = importPDFIntoLibraryIfPossible(from: url, bookmarkData: sourceBookmarkData) {
             load(url: libraryDocument.url, bookmarkData: libraryDocument.bookmarkData)
         } else {
@@ -821,7 +829,6 @@ final class ReaderModel: NSObject, ObservableObject {
                     self.displayTitle = payload.displayTitle
                     self.outlineItems = payload.outlineItems
                     self.mergeCachedPageTexts(payload.pageTexts)
-                    self.recents.add(url: sourceURL, title: payload.displayTitle, bookmarkData: originalBookmarkData)
                 }
 
                 self.schedulePageTextCache(around: self.pageIndex)
@@ -1430,5 +1437,18 @@ final class ReaderModel: NSObject, ObservableObject {
     private func openPendingExternalFiles() {
         guard let url = ExternalOpenRequestCenter.shared.drainPendingURLs().last else { return }
         openExternalFile(url)
+    }
+
+    private func fileExistsForReading(url: URL, bookmarkData: Data?) -> Bool {
+        Self.withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData) { scopedURL in
+            FileManager.default.fileExists(atPath: scopedURL.path)
+        }
+    }
+
+    private func handleMissingPDF(at url: URL) {
+        let removed = recents.remove(url: url)
+        errorMessage = currentAppLanguage.text(
+            removed ? "openPDF.error.missing.removed" : "openPDF.error.missing"
+        )
     }
 }

@@ -47,6 +47,7 @@ struct ReadArcApp: App {
                 }
         }
         .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1280, height: 760)
         .commands {
             ReadArcCommands(model: model, language: language)
         }
@@ -93,6 +94,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 AppAppearanceController.requestSystemAppearanceRefresh()
             }
         }
+    }
+
+    func application(_ application: NSApplication, shouldSaveApplicationState coder: NSCoder) -> Bool {
+        false
+    }
+
+    func application(_ application: NSApplication, shouldRestoreApplicationState coder: NSCoder) -> Bool {
+        false
     }
 
     deinit {

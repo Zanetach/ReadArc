@@ -562,15 +562,6 @@ private struct ReferenceResearchPanel: View {
                 outlineRow("", "3.2.3", "Similarity Search", indent: 34)
             }
 
-            infoCard(title: "Source Evidence", icon: "doc.badge.clock", trailing: "3 selected") {
-                HStack(spacing: 10 * scale) {
-                    tag("Page 18")
-                    tag("Page 21")
-                    tag("Page 33")
-                    tag("+")
-                    Spacer()
-                }
-            }
             Spacer(minLength: 0)
         }
         .background(.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 28 * scale, style: .continuous))

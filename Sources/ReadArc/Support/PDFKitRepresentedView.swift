@@ -3,12 +3,13 @@ import SwiftUI
 
 struct PDFKitRepresentedView: NSViewRepresentable {
     @ObservedObject var model: ReaderModel
+    let interactionTool: ReaderCanvasTool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(model: model)
     }
 
-    func makeNSView(context: Context) -> PDFView {
+    func makeNSView(context: Context) -> DoubleClickPDFView {
         let pdfView = DoubleClickPDFView()
         pdfView.displayMode = .singlePageContinuous
         pdfView.displayDirection = .vertical
@@ -16,6 +17,7 @@ struct PDFKitRepresentedView: NSViewRepresentable {
         pdfView.minScaleFactor = 0.25
         pdfView.maxScaleFactor = 6.0
         pdfView.backgroundColor = NativeProTheme.readerCanvasNSColor
+        pdfView.interactionTool = interactionTool
         context.coordinator.attach(to: pdfView)
         pdfView.doubleClickHandler = { [weak coordinator = context.coordinator] pdfView, event in
             coordinator?.toggleZoom(onDoubleClick: event, in: pdfView)
@@ -26,13 +28,14 @@ struct PDFKitRepresentedView: NSViewRepresentable {
         return pdfView
     }
 
-    func updateNSView(_ pdfView: PDFView, context: Context) {
+    func updateNSView(_ pdfView: DoubleClickPDFView, context: Context) {
         context.coordinator.model = model
         if pdfView.displayMode != .singlePageContinuous {
             pdfView.displayMode = .singlePageContinuous
         }
         pdfView.displayDirection = .vertical
         pdfView.displaysPageBreaks = true
+        pdfView.interactionTool = interactionTool
 
         if pdfView.document !== model.document {
             pdfView.document = model.document
@@ -271,13 +274,36 @@ private struct PDFViewSyncSnapshot: Equatable {
     }
 }
 
-private final class DoubleClickPDFView: PDFView {
+final class DoubleClickPDFView: PDFView {
     var doubleClickHandler: ((DoubleClickPDFView, NSEvent) -> Void)?
     var layoutHandler: ((DoubleClickPDFView) -> Void)?
+    var interactionTool: ReaderCanvasTool = .selectText {
+        didSet {
+            if interactionTool != oldValue {
+                resetCursorRects()
+                if interactionTool == .selectText {
+                    panStartWindowLocation = nil
+                    panStartClipOrigin = nil
+                    popPanCursorIfNeeded()
+                }
+            }
+        }
+    }
+
+    private var panStartWindowLocation: NSPoint?
+    private var panStartClipOrigin: NSPoint?
+    private var didPushPanCursor = false
 
     override func layout() {
         super.layout()
         layoutHandler?(self)
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if interactionTool == .panPage {
+            addCursorRect(bounds, cursor: .openHand)
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -285,6 +311,98 @@ private final class DoubleClickPDFView: PDFView {
             doubleClickHandler?(self, event)
             return
         }
+
+        if interactionTool == .panPage {
+            panStartWindowLocation = event.locationInWindow
+            panStartClipOrigin = activeScrollView?.contentView.bounds.origin
+            pushPanCursorIfNeeded()
+            return
+        }
+
         super.mouseDown(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard interactionTool == .panPage,
+              let scrollView = activeScrollView,
+              let startWindowLocation = panStartWindowLocation,
+              let startClipOrigin = panStartClipOrigin else {
+            super.mouseDragged(with: event)
+            return
+        }
+
+        let deltaX = event.locationInWindow.x - startWindowLocation.x
+        let deltaY = event.locationInWindow.y - startWindowLocation.y
+        let proposedOrigin = NSPoint(
+            x: startClipOrigin.x - deltaX,
+            y: startClipOrigin.y + deltaY
+        )
+        scroll(to: constrainedScrollOrigin(proposedOrigin, in: scrollView), in: scrollView)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if interactionTool == .panPage {
+            panStartWindowLocation = nil
+            panStartClipOrigin = nil
+            popPanCursorIfNeeded()
+            return
+        }
+
+        super.mouseUp(with: event)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        super.rightMouseDown(with: event)
+    }
+
+    private func scroll(to origin: NSPoint, in scrollView: NSScrollView) {
+        scrollView.contentView.scroll(to: origin)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
+    private func pushPanCursorIfNeeded() {
+        guard !didPushPanCursor else { return }
+        NSCursor.closedHand.push()
+        didPushPanCursor = true
+    }
+
+    private func popPanCursorIfNeeded() {
+        guard didPushPanCursor else { return }
+        NSCursor.pop()
+        didPushPanCursor = false
+    }
+
+    private var activeScrollView: NSScrollView? {
+        enclosingScrollView ?? firstDescendant(of: NSScrollView.self, in: self)
+    }
+
+    private func firstDescendant<T: NSView>(of type: T.Type, in view: NSView) -> T? {
+        for subview in view.subviews {
+            if let match = subview as? T {
+                return match
+            }
+            if let match: T = firstDescendant(of: type, in: subview) {
+                return match
+            }
+        }
+        return nil
+    }
+
+    private func constrainedScrollOrigin(_ origin: NSPoint, in scrollView: NSScrollView) -> NSPoint {
+        guard let documentView = scrollView.documentView else {
+            return origin
+        }
+
+        let viewportSize = scrollView.contentView.bounds.size
+        let documentBounds = documentView.bounds
+        let minX = documentBounds.minX
+        let minY = documentBounds.minY
+        let maxX = max(minX, documentBounds.maxX - viewportSize.width)
+        let maxY = max(minY, documentBounds.maxY - viewportSize.height)
+
+        return NSPoint(
+            x: min(max(origin.x, minX), maxX),
+            y: min(max(origin.y, minY), maxY)
+        )
     }
 }

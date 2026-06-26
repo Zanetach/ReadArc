@@ -25,6 +25,7 @@ struct ReadArcCoreSmokeTests {
         failures.append(contentsOf: testAddMovesExistingDocumentToFrontWithoutDuplicates())
         failures.append(contentsOf: testAddStoresRecognizedDocumentTitle())
         failures.append(contentsOf: testLimitKeepsMostRecentDocuments())
+        failures.append(contentsOf: testRemoveRecentDocumentByURL())
         failures.append(contentsOf: testAgentPromptIncludesBoundedCurrentPageContext())
         failures.append(contentsOf: testAgentPromptOmitsEmptyDocumentContext())
         failures.append(contentsOf: testAgentPromptDiscouragesRepeatedRecaps())
@@ -86,6 +87,27 @@ struct ReadArcCoreSmokeTests {
         return store.documents.map(\.url) == [third, second]
             ? []
             : ["expected recent document limit to keep only the newest documents"]
+    }
+
+    @MainActor
+    private static func testRemoveRecentDocumentByURL() -> [String] {
+        let defaults = makeDefaults()
+        let key = "recent-remove-url-test"
+        let store = RecentDocumentsStore(defaults: defaults, storageKey: key)
+        let stale = URL(fileURLWithPath: "/tmp/stale.pdf")
+        let active = URL(fileURLWithPath: "/tmp/active.pdf")
+
+        store.add(url: stale)
+        store.add(url: active)
+
+        guard store.remove(url: stale) else {
+            return ["expected stale recent document URL to be removed"]
+        }
+
+        let reloaded = RecentDocumentsStore(defaults: defaults, storageKey: key)
+        return reloaded.documents.map(\.url) == [active]
+            ? []
+            : ["expected removed recent document URL to stay removed after reload"]
     }
 
     private static func testAgentPromptIncludesBoundedCurrentPageContext() -> [String] {

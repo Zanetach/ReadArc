@@ -29,9 +29,7 @@ struct DocumentInspectorView: View {
                                     EmptyView()
                                 }
 
-                                if model.rightPanelMode == .research {
-                                    SourceEvidencePanel(model: model)
-                                } else {
+                                if model.rightPanelMode != .research {
                                     FileLocationPanel(model: model)
                                 }
                             } else {
@@ -312,46 +310,6 @@ private struct OutlinePanel: View {
                 }
             }
         }
-    }
-}
-
-private struct SourceEvidencePanel: View {
-    @ObservedObject var model: ReaderModel
-
-    var body: some View {
-        InspectorPanel(title: "Source Evidence", systemImage: "doc.badge.clock", trailing: "\(sourcePages.count) selected") {
-            HStack(spacing: 8) {
-                ForEach(sourcePages, id: \.self) { page in
-                    Button {
-                        model.send(.goToPage(page - 1))
-                    } label: {
-                        TagLabel("Page \(page)")
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Button {
-                    model.showResearch(tab: .search)
-                } label: {
-                    TagLabel("+")
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var sourcePages: [Int] {
-        var pages: [Int] = []
-        for match in model.searchMatches.prefix(3) {
-            let page = match.pageIndex + 1
-            if !pages.contains(page) {
-                pages.append(page)
-            }
-        }
-        if pages.isEmpty {
-            return [max(model.pageIndex + 1, 1)]
-        }
-        return pages
     }
 }
 

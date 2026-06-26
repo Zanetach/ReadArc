@@ -33,6 +33,19 @@ public final class RecentDocumentsStore: ObservableObject {
         save()
     }
 
+    @discardableResult
+    public func remove(url: URL) -> Bool {
+        let path = url.standardizedFileURL.path
+        let previousCount = documents.count
+        documents.removeAll { $0.url.standardizedFileURL.path == path }
+        guard documents.count != previousCount else {
+            return false
+        }
+
+        save()
+        return true
+    }
+
     public func clear() {
         documents = []
         save()

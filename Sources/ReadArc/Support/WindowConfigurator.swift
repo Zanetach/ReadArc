@@ -29,13 +29,33 @@ struct WindowConfigurator: NSViewRepresentable {
             alpha: 1
         )
         window.isMovableByWindowBackground = false
+        window.isRestorable = false
         window.styleMask.insert(.fullSizeContentView)
         window.styleMask.insert(.resizable)
         window.minSize = NSSize(width: 680, height: 420)
         window.toolbar = nil
+        MainWindowRegistry.keepSingleMainWindow(window)
 
         if ReferencePreviewMode.isEnabled {
             ReferenceWindowSizer.applyIfNeeded(to: window)
+        }
+    }
+}
+
+@MainActor
+private enum MainWindowRegistry {
+    private static weak var primaryWindow: NSWindow?
+
+    static func keepSingleMainWindow(_ window: NSWindow) {
+        if let primaryWindow, primaryWindow.isVisible, primaryWindow !== window {
+            window.close()
+            primaryWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        if primaryWindow == nil || primaryWindow?.isVisible != true {
+            primaryWindow = window
         }
     }
 }

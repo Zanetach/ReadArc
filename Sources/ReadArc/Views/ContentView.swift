@@ -38,8 +38,8 @@ struct ContentView: View {
         .background {
             NativeProTheme.window
         }
-        .alert("Unable to Open PDF", isPresented: errorBinding) {
-            Button("OK") {
+        .alert(language.text("openPDF.error.title"), isPresented: errorBinding) {
+            Button(language.text("updates.ok")) {
                 model.errorMessage = nil
             }
         } message: {
@@ -186,7 +186,7 @@ struct ContentView: View {
 
     private func openDroppedPDF(from urls: [URL]) -> Bool {
         guard let pdfURL = urls.first(where: { $0.pathExtension.lowercased() == "pdf" }) else {
-            model.errorMessage = "Drop a PDF file to open it."
+            model.errorMessage = language.text("openPDF.error.dropNotPDF")
             return false
         }
 
