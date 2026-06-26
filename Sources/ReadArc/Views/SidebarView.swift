@@ -12,6 +12,8 @@ struct SidebarView: View {
     let openRecent: (RecentDocument) -> Void
     let removeRecent: (RecentDocument) -> Void
     let clearRecents: () -> Void
+    let configureLibraryFolder: () -> Void
+    let libraryFolderName: String
 
     var body: some View {
         VStack(spacing: 0) {
@@ -79,6 +81,34 @@ struct SidebarView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(NativeProTheme.muted)
             }
+
+            Button(action: configureLibraryFolder) {
+                HStack(spacing: 7) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 10, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+
+                    Text(String(format: language.text("library.folder.current"), libraryFolderName))
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.80)
+
+                    Spacer(minLength: 0)
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                }
+                .foregroundStyle(NativeProTheme.muted)
+                .padding(.horizontal, 9)
+                .frame(height: 26)
+                .readArcGlass(
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous),
+                    fallbackColor: NativeProTheme.panel.opacity(0.52),
+                    strokeColor: NativeProTheme.separator.opacity(0.58),
+                    isInteractive: true
+                )
+            }
+            .buttonStyle(.plain)
 
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")

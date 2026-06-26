@@ -34,6 +34,7 @@ final class ReaderModel: NSObject, ObservableObject {
     @Published private(set) var panelState = ReaderPanelState.default
     @Published var selectedChatAgent: ChatAgentProvider = .codexCLI
     @Published var chatMessages: [ChatMessage] = []
+    @Published private(set) var libraryFolderURL: URL?
 
     let recents = RecentDocumentsStore()
     private var loadTask: Task<Void, Never>?
@@ -44,6 +45,7 @@ final class ReaderModel: NSObject, ObservableObject {
     private var documentBookmarkData: Data?
     private var activeDocumentURL: URL?
     private var activeDocumentBookmarkData: Data?
+    private var libraryFolderBookmarkData: Data?
     private var cachedPageTexts: [DocumentPageText] = []
     private let permissionPrimerDefaults = UserDefaults.standard
     nonisolated private static let maxSearchResultCount = 500
@@ -55,6 +57,9 @@ final class ReaderModel: NSObject, ObservableObject {
     nonisolated private static let maxSearchPageTextCharacters = 280_000
     nonisolated private static let maxSearchDurationSeconds: TimeInterval = 12
     nonisolated private static let fileAccessPrimerSeenKey = "readArcFileAccessPrimerSeen"
+    nonisolated private static let libraryFolderPromptSeenKey = "readArcLibraryFolderPromptSeen"
+    nonisolated private static let libraryFolderURLKey = "readArcLibraryFolderURL"
+    nonisolated private static let libraryFolderBookmarkKey = "readArcLibraryFolderBookmark"
 
     var hasDocument: Bool {
         document != nil
@@ -129,8 +134,13 @@ final class ReaderModel: NSObject, ObservableObject {
         searchResults
     }
 
+    var libraryFolderDisplayName: String {
+        libraryFolderURL?.lastPathComponent ?? currentAppLanguage.text("library.folder.unset")
+    }
+
     override init() {
         super.init()
+        restoreLibraryFolder()
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleOpenFileRequest(_:)),
@@ -149,12 +159,15 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func openDocument() {
+        promptForLibraryFolderIfNeeded()
+
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.pdf]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.message = "Choose a PDF document to read."
+        panel.directoryURL = libraryFolderURL
 
         if panel.runModal() == .OK, let url = panel.url {
             openExternalFile(url)
@@ -162,11 +175,29 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func openPDF(url: URL, bookmarkData: Data? = nil) {
-        guard confirmFileAccessPrimerIfNeeded(for: url) else {
+        guard isURLInsideLibrary(url) || confirmFileAccessPrimerIfNeeded(for: url) else {
             return
         }
 
         load(url: url, bookmarkData: bookmarkData)
+    }
+
+    func configureLibraryFolder() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.message = currentAppLanguage.text("library.folder.panel.message")
+        panel.prompt = currentAppLanguage.text("library.folder.panel.choose")
+        panel.directoryURL = libraryFolderURL ?? defaultLibraryParentURL
+
+        guard panel.runModal() == .OK,
+              let url = panel.url else {
+            return
+        }
+
+        setLibraryFolder(url)
     }
 
     private func confirmFileAccessPrimerIfNeeded(for url: URL) -> Bool {
@@ -193,6 +224,89 @@ final class ReaderModel: NSObject, ObservableObject {
 
         permissionPrimerDefaults.set(true, forKey: Self.fileAccessPrimerSeenKey)
         return true
+    }
+
+    private func promptForLibraryFolderIfNeeded() {
+        guard currentLibraryFolderAccess() == nil,
+              !permissionPrimerDefaults.bool(forKey: Self.libraryFolderPromptSeenKey) else {
+            return
+        }
+
+        let language = currentAppLanguage
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = L10n.text("permission.fileAccess.title", language: language)
+        alert.informativeText = L10n.text("permission.fileAccess.message", language: language)
+        alert.addButton(withTitle: L10n.text("permission.fileAccess.continue", language: language))
+        alert.addButton(withTitle: L10n.text("permission.fileAccess.cancel", language: language))
+        if let icon = Self.permissionAlertIcon {
+            alert.icon = icon
+        }
+
+        permissionPrimerDefaults.set(true, forKey: Self.libraryFolderPromptSeenKey)
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            configureLibraryFolder()
+        }
+    }
+
+    private var defaultLibraryParentURL: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    }
+
+    private func restoreLibraryFolder() {
+        libraryFolderURL = permissionPrimerDefaults
+            .string(forKey: Self.libraryFolderURLKey)
+            .map(URL.init(fileURLWithPath:))
+        libraryFolderBookmarkData = permissionPrimerDefaults.data(forKey: Self.libraryFolderBookmarkKey)
+
+        if let access = currentLibraryFolderAccess() {
+            libraryFolderURL = access.url
+            libraryFolderBookmarkData = access.bookmarkData
+        }
+    }
+
+    private func setLibraryFolder(_ url: URL) {
+        let bookmarkData = Self.makeSecurityScopedBookmark(for: url)
+        libraryFolderURL = url
+        libraryFolderBookmarkData = bookmarkData
+        permissionPrimerDefaults.set(url.path, forKey: Self.libraryFolderURLKey)
+        if let bookmarkData {
+            permissionPrimerDefaults.set(bookmarkData, forKey: Self.libraryFolderBookmarkKey)
+        } else {
+            permissionPrimerDefaults.removeObject(forKey: Self.libraryFolderBookmarkKey)
+        }
+    }
+
+    private func currentLibraryFolderAccess() -> (url: URL, bookmarkData: Data?)? {
+        if let bookmarkData = libraryFolderBookmarkData,
+           let resolvedURL = Self.resolvedSecurityScopedURL(bookmarkData: bookmarkData) {
+            if libraryFolderURL != resolvedURL {
+                libraryFolderURL = resolvedURL
+                permissionPrimerDefaults.set(resolvedURL.path, forKey: Self.libraryFolderURLKey)
+            }
+            return (resolvedURL, bookmarkData)
+        }
+
+        guard let libraryFolderURL else {
+            return nil
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: libraryFolderURL.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return nil
+        }
+
+        return (libraryFolderURL, nil)
+    }
+
+    private func isURLInsideLibrary(_ url: URL) -> Bool {
+        guard let libraryAccess = currentLibraryFolderAccess() else {
+            return false
+        }
+        return Self.isFile(url, containedIn: libraryAccess.url)
     }
 
     private var currentAppLanguage: AppLanguage {
@@ -315,11 +429,14 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func openExternalFile(_ url: URL) {
-        guard confirmFileAccessPrimerIfNeeded(for: url) else {
-            return
-        }
+        promptForLibraryFolderIfNeeded()
 
-        load(url: url, bookmarkData: Self.makeSecurityScopedBookmark(for: url))
+        let sourceBookmarkData = Self.makeSecurityScopedBookmark(for: url)
+        if let libraryDocument = importPDFIntoLibraryIfPossible(from: url, bookmarkData: sourceBookmarkData) {
+            load(url: libraryDocument.url, bookmarkData: libraryDocument.bookmarkData)
+        } else {
+            load(url: url, bookmarkData: sourceBookmarkData)
+        }
     }
 
     func removeRecent(_ recent: RecentDocument) {
@@ -328,6 +445,35 @@ final class ReaderModel: NSObject, ObservableObject {
 
     func clearRecents() {
         recents.clear()
+    }
+
+    private func importPDFIntoLibraryIfPossible(from url: URL, bookmarkData: Data?) -> (url: URL, bookmarkData: Data?)? {
+        guard let libraryAccess = currentLibraryFolderAccess() else {
+            return nil
+        }
+
+        return Self.withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData) { scopedSourceURL in
+            Self.withSecurityScopedFileAccess(url: libraryAccess.url, bookmarkData: libraryAccess.bookmarkData) { scopedLibraryURL in
+                guard scopedSourceURL.pathExtension.lowercased() == "pdf" else {
+                    return nil
+                }
+
+                let importedURL: URL
+                if Self.isFile(scopedSourceURL, containedIn: scopedLibraryURL) {
+                    importedURL = scopedSourceURL
+                } else {
+                    guard let copiedURL = Self.importPDFForReading(from: scopedSourceURL, into: scopedLibraryURL) else {
+                        return nil
+                    }
+                    importedURL = copiedURL
+                }
+
+                return (
+                    url: importedURL,
+                    bookmarkData: Self.makeSecurityScopedBookmark(for: importedURL)
+                )
+            }
+        }
     }
 
     func closeDocument() {
@@ -701,9 +847,9 @@ final class ReaderModel: NSObject, ObservableObject {
         }
     }
 
-    nonisolated private static func importPDFForReading(from sourceURL: URL) -> URL? {
+    nonisolated private static func importPDFForReading(from sourceURL: URL, into directoryURL: URL? = nil) -> URL? {
         guard sourceURL.isFileURL,
-              let destinationURL = importedPDFURL(for: sourceURL) else {
+              let destinationURL = importedPDFURL(for: sourceURL, in: directoryURL) else {
             return nil
         }
 
@@ -730,20 +876,26 @@ final class ReaderModel: NSObject, ObservableObject {
         }
     }
 
-    nonisolated private static func importedPDFURL(for sourceURL: URL) -> URL? {
-        guard let supportURL = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first else {
-            return nil
+    nonisolated private static func importedPDFURL(for sourceURL: URL, in directoryURL: URL? = nil) -> URL? {
+        let destinationDirectory: URL
+        if let directoryURL {
+            destinationDirectory = directoryURL
+        } else {
+            guard let supportURL = FileManager.default.urls(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask
+            ).first else {
+                return nil
+            }
+
+            destinationDirectory = supportURL
+                .appendingPathComponent("ReadArc", isDirectory: true)
+                .appendingPathComponent("ImportedPDFs", isDirectory: true)
         }
 
-        let directoryURL = supportURL
-            .appendingPathComponent("ReadArc", isDirectory: true)
-            .appendingPathComponent("ImportedPDFs", isDirectory: true)
         let baseName = sanitizedImportFileName(sourceURL.deletingPathExtension().lastPathComponent)
         let fingerprint = importFingerprint(for: sourceURL)
-        return directoryURL.appendingPathComponent("\(baseName)-\(fingerprint).pdf")
+        return destinationDirectory.appendingPathComponent("\(baseName)-\(fingerprint).pdf")
     }
 
     nonisolated private static func sanitizedImportFileName(_ name: String) -> String {
@@ -994,6 +1146,25 @@ final class ReaderModel: NSObject, ObservableObject {
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )
+    }
+
+    nonisolated private static func resolvedSecurityScopedURL(bookmarkData: Data) -> URL? {
+        var isStale = false
+        guard let resolvedURL = try? URL(
+            resolvingBookmarkData: bookmarkData,
+            options: [.withSecurityScope, .withoutUI],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        ), !isStale else {
+            return nil
+        }
+        return resolvedURL
+    }
+
+    nonisolated private static func isFile(_ fileURL: URL, containedIn directoryURL: URL) -> Bool {
+        let filePath = fileURL.standardizedFileURL.resolvingSymlinksInPath().path
+        let directoryPath = directoryURL.standardizedFileURL.resolvingSymlinksInPath().path
+        return filePath == directoryPath || filePath.hasPrefix(directoryPath + "/")
     }
 
     nonisolated private static func withSecurityScopedFileAccess<T>(

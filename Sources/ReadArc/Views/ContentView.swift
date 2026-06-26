@@ -153,7 +153,9 @@ struct ContentView: View {
                 openDocument: model.openDocument,
                 openRecent: model.openRecent,
                 removeRecent: model.removeRecent,
-                clearRecents: model.clearRecents
+                clearRecents: model.clearRecents,
+                configureLibraryFolder: model.configureLibraryFolder,
+                libraryFolderName: model.libraryFolderDisplayName
             )
         }
     }

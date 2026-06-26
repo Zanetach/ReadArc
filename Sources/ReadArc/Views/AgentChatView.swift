@@ -425,6 +425,10 @@ private struct ChatPanelMetrics: Equatable {
     var messageSpacing: CGFloat { 9 + scale * 3 }
     var messageOuterSpacing: CGFloat { 7 + scale * 1 }
     var messageSideSpacer: CGFloat { width < 320 ? 18 : 30 }
+    var answerBlockSpacing: CGFloat { 7 + scale * 2 }
+    var answerCardPadding: CGFloat { 9 + scale * 2 }
+    var answerCardCornerRadius: CGFloat { 10 + scale * 2 }
+    var answerChildSpacing: CGFloat { 5 + scale * 1 }
     var avatarSize: CGFloat { 25 + scale * 5 }
     var avatarIconFont: CGFloat { 12 + scale * 2 }
     var composerGap: CGFloat { 8 + scale * 2 }
@@ -554,11 +558,15 @@ private struct MessageBubble: View {
                     TypingIndicator()
                         .padding(.top, 1)
                 } else {
-                    Text(messageText)
-                        .font(.system(size: metrics.bodyFont))
-                        .foregroundStyle(NativeProTheme.ink)
-                        .multilineTextAlignment(textAlignment)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if message.role == .assistant {
+                        AgentFormattedMessageView(text: messageText, metrics: metrics)
+                    } else {
+                        Text(messageText)
+                            .font(.system(size: metrics.bodyFont))
+                            .foregroundStyle(NativeProTheme.ink)
+                            .multilineTextAlignment(textAlignment)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 metadata
@@ -655,6 +663,397 @@ private struct MessageBubble: View {
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             didCopy = false
         }
+    }
+}
+
+private struct AgentFormattedMessageView: View {
+    let text: String
+    let metrics: ChatPanelMetrics
+
+    private var blocks: [AgentAnswerBlock] {
+        AgentAnswerParser.blocks(from: text)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: metrics.answerBlockSpacing) {
+            ForEach(blocks) { block in
+                switch block.kind {
+                case .paragraph(let text):
+                    AgentParagraphText(text: text, metrics: metrics)
+                case .item(let title, let body, let children, let pageReference):
+                    AgentAnswerCard(
+                        sequence: block.id + 1,
+                        title: title,
+                        content: body,
+                        children: children,
+                        pageReference: pageReference,
+                        metrics: metrics
+                    )
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct AgentAnswerCard: View {
+    let sequence: Int
+    let title: String?
+    let content: String
+    let children: [String]
+    let pageReference: String?
+    let metrics: ChatPanelMetrics
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Text("\(sequence)")
+                .font(.system(size: metrics.captionFont, weight: .bold, design: .rounded))
+                .foregroundStyle(NativeProTheme.accent)
+                .frame(width: 21, height: 21)
+                .background(NativeProTheme.selection.opacity(0.76), in: Circle())
+                .overlay {
+                    Circle().stroke(NativeProTheme.accent.opacity(0.18), lineWidth: 1)
+                }
+
+            VStack(alignment: .leading, spacing: 5) {
+                if title != nil || pageReference != nil {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        if let title {
+                            InlineMarkdownText(
+                                text: title,
+                                font: .system(size: metrics.bodyFont, weight: .semibold),
+                                color: NativeProTheme.ink
+                            )
+                        }
+
+                        Spacer(minLength: 0)
+
+                        if let pageReference {
+                            Text(pageReference)
+                                .font(.system(size: metrics.captionFont, weight: .semibold))
+                                .foregroundStyle(NativeProTheme.accent)
+                                .padding(.horizontal, 6)
+                                .frame(height: 19)
+                                .background(NativeProTheme.selection.opacity(0.74), in: Capsule())
+                        }
+                    }
+                }
+
+                if !content.isEmpty {
+                    InlineMarkdownText(
+                        text: content,
+                        font: .system(size: metrics.bodyFont),
+                        color: NativeProTheme.ink.opacity(0.88)
+                    )
+                    .lineSpacing(2)
+                }
+
+                if !children.isEmpty {
+                    VStack(alignment: .leading, spacing: metrics.answerChildSpacing) {
+                        ForEach(Array(children.enumerated()), id: \.offset) { item in
+                            AgentChildBullet(text: item.element, metrics: metrics)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(metrics.answerCardPadding)
+        .background(NativeProTheme.tile.opacity(0.62), in: RoundedRectangle(cornerRadius: metrics.answerCardCornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: metrics.answerCardCornerRadius, style: .continuous)
+                .stroke(NativeProTheme.separator.opacity(0.72), lineWidth: 1)
+        }
+    }
+}
+
+private struct AgentChildBullet: View {
+    let text: String
+    let metrics: ChatPanelMetrics
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Circle()
+                .fill(NativeProTheme.accent.opacity(0.72))
+                .frame(width: 4.5, height: 4.5)
+                .offset(y: -1)
+
+            InlineMarkdownText(
+                text: text,
+                font: .system(size: metrics.bodyFont - 0.5),
+                color: NativeProTheme.ink.opacity(0.82)
+            )
+            .lineSpacing(1.5)
+        }
+    }
+}
+
+private struct AgentParagraphText: View {
+    let text: String
+    let metrics: ChatPanelMetrics
+
+    var body: some View {
+        InlineMarkdownText(
+            text: text,
+            font: .system(size: metrics.bodyFont),
+            color: NativeProTheme.ink
+        )
+        .lineSpacing(2)
+    }
+}
+
+private struct InlineMarkdownText: View {
+    let text: String
+    let font: Font
+    let color: Color
+
+    var body: some View {
+        renderedText
+            .font(font)
+            .foregroundStyle(color)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var renderedText: Text {
+        InlineMarkdownText.runs(from: text).reduce(Text("")) { output, run in
+            let segment = run.isStrong ? Text(run.text).fontWeight(.semibold) : Text(run.text)
+            return output + segment
+        }
+    }
+
+    private static func runs(from text: String) -> [(text: String, isStrong: Bool)] {
+        var output: [(text: String, isStrong: Bool)] = []
+        var cursor = text.startIndex
+
+        while cursor < text.endIndex,
+              let start = text[cursor...].range(of: "**") {
+            if start.lowerBound > cursor {
+                output.append((String(text[cursor..<start.lowerBound]), false))
+            }
+
+            let strongStart = start.upperBound
+            guard let end = text[strongStart...].range(of: "**") else {
+                output.append((String(text[start.lowerBound...]), false))
+                return output
+            }
+
+            output.append((String(text[strongStart..<end.lowerBound]), true))
+            cursor = end.upperBound
+        }
+
+        if cursor < text.endIndex {
+            output.append((String(text[cursor...]), false))
+        }
+
+        return output
+    }
+}
+
+private struct AgentAnswerBlock: Identifiable, Equatable {
+    enum Kind: Equatable {
+        case paragraph(String)
+        case item(title: String?, body: String, children: [String], pageReference: String?)
+    }
+
+    let id: Int
+    let kind: Kind
+}
+
+private enum AgentAnswerParser {
+    private struct PendingItem {
+        var title: String?
+        var body: String
+        var children: [String]
+        var pageReference: String?
+    }
+
+    private enum PendingBlock {
+        case paragraph(String)
+        case item(PendingItem)
+    }
+
+    static func blocks(from rawText: String) -> [AgentAnswerBlock] {
+        let normalized = rawText.replacingOccurrences(of: "\r\n", with: "\n")
+        let lines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        var pendingBlocks: [PendingBlock] = []
+        var paragraphLines: [String] = []
+        var currentItem: PendingItem?
+
+        func flushParagraph() {
+            let paragraph = paragraphLines
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !paragraph.isEmpty {
+                pendingBlocks.append(.paragraph(paragraph))
+            }
+            paragraphLines = []
+        }
+
+        func flushItem() {
+            if let item = currentItem {
+                pendingBlocks.append(.item(item))
+                currentItem = nil
+            }
+        }
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                flushParagraph()
+                continue
+            }
+
+            if let bullet = bulletContent(in: line) {
+                if leadingWhitespaceCount(in: line) < 2 {
+                    flushParagraph()
+                    flushItem()
+                    currentItem = item(from: bullet)
+                } else if var item = currentItem {
+                    item.children.append(cleanInlineMarkdown(bullet))
+                    currentItem = item
+                } else {
+                    flushParagraph()
+                    pendingBlocks.append(.item(item(from: bullet)))
+                }
+            } else if var item = currentItem {
+                let addition = cleanInlineMarkdown(trimmed)
+                item.body = joinedText(item.body, addition)
+                currentItem = item
+            } else {
+                paragraphLines.append(trimmed)
+            }
+        }
+
+        flushParagraph()
+        flushItem()
+
+        guard !pendingBlocks.isEmpty else {
+            let fallback = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+            return fallback.isEmpty ? [] : [AgentAnswerBlock(id: 0, kind: .paragraph(fallback))]
+        }
+
+        return pendingBlocks.enumerated().map { index, block in
+            switch block {
+            case .paragraph(let text):
+                return AgentAnswerBlock(id: index, kind: .paragraph(cleanInlineMarkdown(text)))
+            case .item(let item):
+                return AgentAnswerBlock(
+                    id: index,
+                    kind: .item(
+                        title: item.title,
+                        body: item.body,
+                        children: item.children,
+                        pageReference: item.pageReference
+                    )
+                )
+            }
+        }
+    }
+
+    private static func item(from content: String) -> PendingItem {
+        let (title, remainder) = splitLeadingTitle(in: content)
+        let (body, pageReference) = extractPageReference(from: remainder)
+        return PendingItem(
+            title: title,
+            body: cleanInlineMarkdown(body),
+            children: [],
+            pageReference: pageReference
+        )
+    }
+
+    private static func splitLeadingTitle(in content: String) -> (String?, String) {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.hasPrefix("**") {
+            let titleStart = trimmed.index(trimmed.startIndex, offsetBy: 2)
+            if let titleEnd = trimmed[titleStart...].range(of: "**") {
+                let title = String(trimmed[titleStart..<titleEnd.lowerBound])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                var remainder = String(trimmed[titleEnd.upperBound...])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if remainder.hasPrefix("：") || remainder.hasPrefix(":") {
+                    remainder.removeFirst()
+                }
+                return (title.isEmpty ? nil : title, remainder.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
+
+        let colonCandidates = ["：", ":"]
+            .compactMap { delimiter -> String.Index? in
+                trimmed.range(of: delimiter)?.lowerBound
+            }
+            .sorted()
+
+        if let colonIndex = colonCandidates.first {
+            let title = String(trimmed[..<colonIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !title.isEmpty, title.count <= 18 {
+                let remainderStart = trimmed.index(after: colonIndex)
+                let remainder = String(trimmed[remainderStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                return (cleanInlineMarkdown(title), remainder)
+            }
+        }
+
+        return (nil, trimmed)
+    }
+
+    private static func extractPageReference(from text: String) -> (String, String?) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.hasSuffix("页）"),
+           let range = trimmed.range(of: "（第", options: .backwards) {
+            let pageReference = String(trimmed[range.lowerBound...])
+            let body = String(trimmed[..<range.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return (body, pageReference)
+        }
+
+        if trimmed.hasSuffix(")"),
+           let range = trimmed.range(of: "(Page", options: [.backwards, .caseInsensitive]) {
+            let pageReference = String(trimmed[range.lowerBound...])
+            let body = String(trimmed[..<range.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return (body, pageReference)
+        }
+
+        return (trimmed, nil)
+    }
+
+    private static func bulletContent(in line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        for marker in ["- ", "* ", "• "] {
+            if trimmed.hasPrefix(marker) {
+                return String(trimmed.dropFirst(marker.count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return nil
+    }
+
+    private static func leadingWhitespaceCount(in line: String) -> Int {
+        var count = 0
+        for character in line {
+            if character == " " {
+                count += 1
+            } else if character == "\t" {
+                count += 2
+            } else {
+                break
+            }
+        }
+        return count
+    }
+
+    private static func joinedText(_ lhs: String, _ rhs: String) -> String {
+        guard !lhs.isEmpty else { return rhs }
+        guard !rhs.isEmpty else { return lhs }
+        return "\(lhs) \(rhs)"
+    }
+
+    private static func cleanInlineMarkdown(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "`", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  A native macOS PDF reader with thumbnails, search, and an optional Codex / Claude Code agent workspace.
+  Native macOS PDF reading with thumbnails, local search, a reusable library folder, and optional Codex / Claude Code assistance.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
   <img alt="Architecture" src="https://img.shields.io/badge/Apple%20Silicon-arm64-34d399">
 </p>
 
-ReadArc keeps the core reading experience native and local with `PDFKit`, then adds a document-aware workspace for search evidence, outlines, notes, and optional local agents. Chat is not opened by default: opening a PDF takes you straight into the reader with page thumbnails.
+ReadArc keeps PDF rendering native with `PDFKit`, then adds a document-aware workspace for search evidence, page thumbnails, outline review, and optional local agent chat. The default path stays reader-first: opening a PDF takes you into the document, while Chat, Focus, Research, the Library, and the floating toolbar remain available when needed.
 
 ## Download
 
@@ -27,8 +27,8 @@ Current public artifact:
 
 | Item | Value |
 | --- | --- |
-| Release | `v0.2.7` |
-| Artifact | `ReadArc-0.2.7-macOS-arm64.dmg` |
+| Release | `v0.2.11` |
+| Artifact | `ReadArc-0.2.11-macOS-arm64.dmg` |
 | System | macOS 14 or later |
 | CPU | Apple Silicon |
 | Signing | Ad-hoc signed, not notarized |
@@ -40,19 +40,27 @@ Current public artifact:
 | Area | Details |
 | --- | --- |
 | Native PDF reading | Opens local PDFs with `PDFView`, page navigation, zoom controls, fit-to-view, and double-click zoom. |
-| Page thumbnails | Automatically opens the thumbnail rail after a PDF loads; the library remains available from the left rail. |
-| Search and evidence | Searches the current PDF, limits result memory, and jumps to exact match positions with PDFKit highlighting. |
-| Document workspace | Right panel supports Chat, Focus, and Research modes; it is resizable and hidden by default. |
-| Agent chat | Uses local Codex or Claude Code when available, streams responses, shows timestamps and elapsed time, and supports copy actions. |
-| Memory guardrails | Bounds search results, cached page text, thumbnails, chat history, and unusually long streamed agent output. |
-| Preferences | Light, dark, and follow-system appearance; Chinese and English UI modes from the left rail settings menu. |
-| Release tooling | Builds `.app`, packages a standard macOS DMG, emits checksums, and publishes GitHub Releases. |
+| ReadArc Library | Lets the user choose a library folder once, imports PDFs there, and reuses that folder permission for future reading, Chat, search, thumbnails, and indexing. |
+| Page thumbnails | Shows a thumbnail rail for PDF navigation, with cached thumbnail rendering and a compact left command rail. |
+| Search and evidence | Searches the current PDF, bounds result memory, and jumps to exact match positions with PDFKit highlighting. |
+| Agent chat | Uses local Codex or Claude Code when available, streams responses, shows timestamps and elapsed time, supports copy actions, and formats structured answers as readable cards. |
+| Focus and Research panels | Keeps current-page context, search results, outline, source evidence, and document metadata in the right-side workspace. |
+| Performance guardrails | Bounds search results, cached page text, thumbnails, chat history, and unusually long streamed agent output. |
+| Appearance | Light, dark, and follow-system themes with Chinese and English UI modes. |
+| Release tooling | Builds `.app`, packages a macOS DMG, emits SHA-256 checksums, and publishes GitHub Releases. |
 
-## 中文简介
+## Privacy and File Access
 
-ReadArc 是一个原生 macOS PDF 阅读器。打开 PDF 后默认显示页面缩略图，不会自动打开 Chat。你可以在右侧按需打开 `对话 / 专注 / 研究` 面板，使用 Codex 或 Claude Code 对当前 PDF 进行总结、解释、检索和分析。
+ReadArc does not ask for Full Disk Access.
 
-当前 GitHub Release 提供 Apple Silicon DMG。由于本机没有 Apple Developer ID 证书，安装包为 ad-hoc 签名且未公证。
+The intended flow is:
+
+1. Choose a `ReadArc Library` folder once.
+2. Open or drag in PDFs.
+3. ReadArc imports those PDFs into the library folder.
+4. Chat, search, thumbnails, and indexing reuse the library copy.
+
+This avoids repeated per-PDF permission prompts while staying aligned with macOS user-selected file and folder access. If no library folder is selected, ReadArc can still open a PDF once using the standard file selection flow.
 
 ## Agent Support
 
@@ -63,12 +71,15 @@ Agent features are optional. Reading, thumbnails, search, theme, language, and l
 | Codex | `codex` | Streams JSON output from `codex exec` with bounded PDF context. |
 | Claude Code | `claude` | Streams `stream-json` events and coalesces assistant deltas. |
 
+Agent prompts include bounded PDF text context only. ReadArc does not pass local PDF folder paths into the prompt.
+
 ## Install From DMG
 
 1. Download the DMG from [Releases](https://github.com/Zanetach/ReadArc/releases/latest).
 2. Open the DMG.
 3. Drag `ReadArc.app` into `Applications`.
 4. Open ReadArc from Finder or Launchpad.
+5. Choose a ReadArc Library folder when prompted.
 
 If macOS blocks the app because it is not notarized, right-click `ReadArc.app`, choose **Open**, then confirm.
 
@@ -89,15 +100,15 @@ The Codex app run configuration points at this script through `.codex/environmen
 ## Verify
 
 ```bash
-swift build
-swift run ReadArcCoreSmokeTests
+swift build --build-system native
+swift run --build-system native ReadArcCoreSmokeTests
 ./script/build_and_run.sh --verify
 ```
 
 Release build:
 
 ```bash
-swift build -c release
+swift build -c release --build-system native
 ```
 
 ## Package and Release
@@ -105,13 +116,13 @@ swift build -c release
 Create a local Apple Silicon DMG:
 
 ```bash
-./script/release_github.sh --version 0.2.7 --ad-hoc --skip-notary --format dmg
+./script/release_github.sh --version 0.2.11 --ad-hoc --skip-notary --format dmg
 ```
 
 Publish a GitHub Release with the ad-hoc Apple Silicon DMG:
 
 ```bash
-./script/release_github.sh --version 0.2.7 --publish --ready --ad-hoc --skip-notary --format dmg
+./script/release_github.sh --version 0.2.11 --publish --ready --ad-hoc --skip-notary --format dmg
 ```
 
 Create a Developer ID signed and notarized release when Apple credentials are configured:
@@ -119,7 +130,7 @@ Create a Developer ID signed and notarized release when Apple credentials are co
 ```bash
 READARC_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 READARC_NOTARY_PROFILE="readarc-notary" \
-./script/release_github.sh --version 0.2.7 --publish --ready --format dmg
+./script/release_github.sh --version 0.2.11 --publish --ready --format dmg
 ```
 
 Store notarization credentials once:
@@ -155,10 +166,17 @@ Sources/ReadArcCore/             parsers, prompt builders, stores, formatters
 Sources/ReadArcCoreSmokeTests/   executable smoke tests
 design/assets/                   README and product assets
 design/logo-options/             logo exploration assets
+design/screenshots/              UI verification screenshots
 script/build_and_run.sh          local app bundle builder and runner
 script/release_github.sh         DMG and GitHub Release publisher
 script/stress_pdf_performance.sh large PDF performance sampler
 ```
+
+## 中文简介
+
+ReadArc 是一个原生 macOS PDF 阅读器。打开 PDF 后默认进入阅读体验，可以按需打开缩略图、资料库、对话、专注和研究面板。新版本支持选择一个 `ReadArc Library` 资料库文件夹，之后 PDF 会导入到该文件夹，Chat、搜索、缩略图和索引可以复用资料库权限，减少每个 PDF 都要单独授权的打断。
+
+Agent 功能是可选的：安装 `codex` 或 `claude` CLI 后，可以让 ReadArc 基于当前 PDF 的受限上下文进行总结、解释、检索和分析。当前 GitHub Release 提供 Apple Silicon DMG。由于本机没有 Apple Developer ID 证书，安装包为 ad-hoc 签名且未公证。
 
 ## Notes
 
