@@ -1,7 +1,7 @@
 # ReadArc
 
 <p align="center">
-  <img src="docs/readarc-hero.png" alt="ReadArc macOS PDF reader with command rail, PDF canvas, and floating toolbar" width="100%">
+  <img src="docs/readarc-github-cover.png" alt="ReadArc AI-native PDF workspace for macOS" width="100%">
 </p>
 
 <p align="center">
