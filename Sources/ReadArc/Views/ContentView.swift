@@ -188,7 +188,7 @@ struct ContentView: View {
             return false
         }
 
-        model.load(url: pdfURL)
+        model.openExternalFile(pdfURL)
         return true
     }
 
@@ -512,48 +512,51 @@ private struct CommandRailView: View {
             let shellShadow = metrics.shellShadow(for: colorScheme)
 
             VStack(spacing: 0) {
-                VStack(spacing: metrics.itemSpacing) {
+                VStack(spacing: 0) {
                     CommandRailLogoView(metrics: metrics)
 
-                    RailButton(
-                        title: model.rightPanelMode == .chat && model.isInspectorVisible ? "Hide Chat" : "Chat",
-                        systemImage: "bubble.left.and.bubble.right",
-                        isActive: model.rightPanelMode == .chat && model.isInspectorVisible,
-                        metrics: metrics
-                    ) {
-                        model.toggleChat()
-                    }
+                    VStack(spacing: metrics.itemSpacing) {
+                        RailButton(
+                            title: model.rightPanelMode == .chat && model.isInspectorVisible ? "Hide Chat" : "Chat",
+                            systemImage: "bubble.left.and.bubble.right",
+                            isActive: model.rightPanelMode == .chat && model.isInspectorVisible,
+                            metrics: metrics
+                        ) {
+                            model.toggleChat()
+                        }
 
-                    RailButton(
-                        title: language.text("library.title"),
-                        systemImage: "folder",
-                        isActive: model.isLibraryOverlayVisible,
-                        metrics: metrics
-                    ) {
-                        model.showLibrary()
-                    }
-
-                    RailButton(
-                        title: language.text("thumbnails.title"),
-                        systemImage: "sidebar.leading",
-                        isActive: model.hasDocument && model.isSidebarVisible && !model.isLibraryOverlayVisible,
-                        metrics: metrics
-                    ) {
-                        if model.hasDocument {
-                            model.toggleThumbnails()
-                        } else {
+                        RailButton(
+                            title: language.text("library.title"),
+                            systemImage: "folder",
+                            isActive: model.isLibraryOverlayVisible,
+                            metrics: metrics
+                        ) {
                             model.showLibrary()
                         }
-                    }
 
-                    RailButton(
-                        title: "Search",
-                        systemImage: "magnifyingglass",
-                        isActive: model.rightPanelMode == .research && model.inspectorTab == .search && model.isInspectorVisible,
-                        metrics: metrics
-                    ) {
-                        model.showResearch(tab: .search)
+                        RailButton(
+                            title: language.text("thumbnails.title"),
+                            systemImage: "sidebar.leading",
+                            isActive: model.hasDocument && model.isSidebarVisible && !model.isLibraryOverlayVisible,
+                            metrics: metrics
+                        ) {
+                            if model.hasDocument {
+                                model.toggleThumbnails()
+                            } else {
+                                model.showLibrary()
+                            }
+                        }
+
+                        RailButton(
+                            title: "Search",
+                            systemImage: "magnifyingglass",
+                            isActive: model.rightPanelMode == .research && model.inspectorTab == .search && model.isInspectorVisible,
+                            metrics: metrics
+                        ) {
+                            model.showResearch(tab: .search)
+                        }
                     }
+                    .padding(.top, metrics.logoItemSpacing)
                 }
                 .padding(.top, metrics.logoTopPadding)
                 .padding(.bottom, metrics.verticalPadding)
@@ -810,7 +813,14 @@ private struct CommandRailMetrics {
     }
 
     var railTopInset: CGFloat {
-        clamp(availableHeight * 0.004, lower: 0, upper: 4)
+        if availableHeight < 520 {
+            return 4
+        }
+        return clamp(availableHeight * 0.014, lower: 8, upper: 12)
+    }
+
+    var logoItemSpacing: CGFloat {
+        clamp(itemSpacing + 4, lower: 12, upper: 18)
     }
 
     var itemSpacing: CGFloat {

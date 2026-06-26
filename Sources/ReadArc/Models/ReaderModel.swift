@@ -42,6 +42,7 @@ final class ReaderModel: NSObject, ObservableObject {
     private var activeLoadID: UUID?
     private var documentBookmarkData: Data?
     private var cachedPageTexts: [DocumentPageText] = []
+    private let permissionPrimerDefaults = UserDefaults.standard
     nonisolated private static let maxSearchResultCount = 500
     nonisolated private static let minimumSearchLength = 2
     nonisolated private static let maxCachedPageTextPages = 120
@@ -50,6 +51,7 @@ final class ReaderModel: NSObject, ObservableObject {
     nonisolated private static let cachedPageTextLimit = 4_000
     nonisolated private static let maxSearchPageTextCharacters = 280_000
     nonisolated private static let maxSearchDurationSeconds: TimeInterval = 12
+    nonisolated private static let fileAccessPrimerSeenKey = "readArcFileAccessPrimerSeen"
 
     var hasDocument: Bool {
         document != nil
@@ -152,11 +154,62 @@ final class ReaderModel: NSObject, ObservableObject {
         panel.message = "Choose a PDF document to read."
 
         if panel.runModal() == .OK, let url = panel.url {
-            load(url: url, bookmarkData: Self.makeSecurityScopedBookmark(for: url))
+            openExternalFile(url)
         }
     }
 
-    func load(url: URL, bookmarkData: Data? = nil) {
+    func openPDF(url: URL, bookmarkData: Data? = nil) {
+        guard confirmFileAccessPrimerIfNeeded(for: url) else {
+            return
+        }
+
+        load(url: url, bookmarkData: bookmarkData)
+    }
+
+    private func confirmFileAccessPrimerIfNeeded(for url: URL) -> Bool {
+        guard url.isFileURL,
+              !permissionPrimerDefaults.bool(forKey: Self.fileAccessPrimerSeenKey) else {
+            return true
+        }
+
+        let language = currentAppLanguage
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = L10n.text("permission.fileAccess.title", language: language)
+        alert.informativeText = L10n.text("permission.fileAccess.message", language: language)
+        alert.addButton(withTitle: L10n.text("permission.fileAccess.continue", language: language))
+        alert.addButton(withTitle: L10n.text("permission.fileAccess.cancel", language: language))
+        if let icon = Self.permissionAlertIcon {
+            alert.icon = icon
+        }
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else {
+            return false
+        }
+
+        permissionPrimerDefaults.set(true, forKey: Self.fileAccessPrimerSeenKey)
+        return true
+    }
+
+    private var currentAppLanguage: AppLanguage {
+        let storedLanguage = permissionPrimerDefaults.string(forKey: "appLanguage")
+        return (storedLanguage.flatMap(AppLanguage.init(rawValue:)) ?? .system).resolved
+    }
+
+    @MainActor
+    private static var permissionAlertIcon: NSImage? {
+        if let icon = NSImage(named: "readarc-logo") {
+            return icon
+        }
+
+        guard let iconURL = Bundle.main.url(forResource: "readarc-logo", withExtension: "png") else {
+            return NSApp.applicationIconImage
+        }
+        return NSImage(contentsOf: iconURL) ?? NSApp.applicationIconImage
+    }
+
+    private func load(url: URL, bookmarkData: Data? = nil) {
         guard url.pathExtension.lowercased() == "pdf" else {
             errorMessage = "The selected file is not a PDF."
             return
@@ -245,10 +298,14 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func openRecent(_ recent: RecentDocument) {
-        load(url: recent.url, bookmarkData: recent.bookmarkData)
+        openPDF(url: recent.url, bookmarkData: recent.bookmarkData)
     }
 
     func openExternalFile(_ url: URL) {
+        guard confirmFileAccessPrimerIfNeeded(for: url) else {
+            return
+        }
+
         load(url: url, bookmarkData: Self.makeSecurityScopedBookmark(for: url))
     }
 
