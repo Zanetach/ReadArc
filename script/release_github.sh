@@ -340,7 +340,7 @@ require_command osascript
 require_command shasum
 mkdir -p "$RELEASE_DIR"
 
-READARC_BUILD_CONFIGURATION=release READARC_VERSION="$VERSION" "$ROOT_DIR/script/build_and_run.sh" --package >/dev/null
+READARC_BUILD_CONFIGURATION=release READARC_VERSION="$VERSION" /bin/bash "$ROOT_DIR/script/build_and_run.sh" --package >/dev/null
 sign_app
 notarize_app
 package_artifacts
