@@ -12,7 +12,6 @@ public struct AgentPDFPageExcerpt: Equatable, Sendable {
 
 public struct AgentPDFContext: Equatable, Sendable {
     public let title: String
-    public let location: String
     public let pageCount: Int
     public let currentPageNumber: Int
     public let currentPageText: String
@@ -22,7 +21,6 @@ public struct AgentPDFContext: Equatable, Sendable {
 
     public init(
         title: String,
-        location: String,
         pageCount: Int,
         currentPageNumber: Int,
         currentPageText: String,
@@ -31,7 +29,6 @@ public struct AgentPDFContext: Equatable, Sendable {
         documentPageExcerpts: [AgentPDFPageExcerpt] = []
     ) {
         self.title = title
-        self.location = location
         self.pageCount = pageCount
         self.currentPageNumber = currentPageNumber
         self.currentPageText = currentPageText
@@ -63,6 +60,7 @@ public enum AgentPromptBuilder {
         - Use prior chat only for necessary context; do not repeat earlier answers.
         - Keep the response in the same language as the latest user message.
         - When citing PDF evidence, include page numbers when available.
+        - Use only the PDF text context supplied below; do not access local files or folders.
 
         \(documentContext(pdfContext))
 
@@ -81,10 +79,6 @@ public enum AgentPromptBuilder {
             "PDF: \(context.title)",
             "Pages: \(context.pageCount), current page: \(context.currentPageNumber)"
         ]
-
-        if !context.location.isEmpty {
-            sections.append("Location: \(context.location)")
-        }
 
         if !context.outlineItems.isEmpty {
             sections.append(

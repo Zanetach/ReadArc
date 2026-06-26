@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CryptoKit
 import Foundation
 import PDFKit
 import ReadArcCore
@@ -41,6 +42,8 @@ final class ReaderModel: NSObject, ObservableObject {
     private var pageTextTask: Task<Void, Never>?
     private var activeLoadID: UUID?
     private var documentBookmarkData: Data?
+    private var activeDocumentURL: URL?
+    private var activeDocumentBookmarkData: Data?
     private var cachedPageTexts: [DocumentPageText] = []
     private let permissionPrimerDefaults = UserDefaults.standard
     nonisolated private static let maxSearchResultCount = 500
@@ -245,6 +248,8 @@ final class ReaderModel: NSObject, ObservableObject {
         selectedSearchIndex = nil
         outlineItems = []
         documentBookmarkData = bookmarkData
+        activeDocumentURL = nil
+        activeDocumentBookmarkData = nil
         cachedPageTexts = []
         setPanelState(
             isInspectorVisible: false,
@@ -275,6 +280,8 @@ final class ReaderModel: NSObject, ObservableObject {
                 self.documentURL = url
                 self.displayTitle = payload.displayTitle
                 self.documentBookmarkData = bookmarkData
+                self.activeDocumentURL = payload.processingURL
+                self.activeDocumentBookmarkData = payload.processingBookmarkData
                 self.pageIndex = 0
                 self.pageCount = payload.pageCount
                 self.scaleFactor = 1
@@ -291,7 +298,13 @@ final class ReaderModel: NSObject, ObservableObject {
                 self.isLoadingDocument = false
                 self.recents.add(url: url, title: payload.displayTitle, bookmarkData: bookmarkData)
                 self.scheduleSearch()
-                self.scheduleDocumentIndexing(loadID: loadID, url: url, bookmarkData: bookmarkData)
+                self.scheduleDocumentIndexing(
+                    loadID: loadID,
+                    originalURL: url,
+                    originalBookmarkData: bookmarkData,
+                    processingURL: payload.processingURL,
+                    processingBookmarkData: payload.processingBookmarkData
+                )
                 self.loadTask = nil
             }
         }
@@ -337,6 +350,8 @@ final class ReaderModel: NSObject, ObservableObject {
         isSearchTruncated = false
         outlineItems = []
         documentBookmarkData = nil
+        activeDocumentURL = nil
+        activeDocumentBookmarkData = nil
         cachedPageTexts = []
         indexTask = nil
         pageTextTask = nil
@@ -470,7 +485,6 @@ final class ReaderModel: NSObject, ObservableObject {
 
         return AgentPDFContext(
             title: documentTitle,
-            location: documentLocation,
             pageCount: pageCount,
             currentPageNumber: currentPageNumber,
             currentPageText: currentPageText,
@@ -575,7 +589,9 @@ final class ReaderModel: NSObject, ObservableObject {
         searchTask?.cancel()
 
         let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedQuery.count >= Self.minimumSearchLength, let documentURL else {
+        guard trimmedQuery.count >= Self.minimumSearchLength,
+              let documentURL,
+              let activeDocumentURL else {
             searchResults = []
             selectedSearchIndex = nil
             isSearching = false
@@ -589,18 +605,24 @@ final class ReaderModel: NSObject, ObservableObject {
         isSearchTruncated = false
 
         let limit = Self.maxSearchResultCount
-        let bookmarkData = documentBookmarkData
+        let bookmarkData = activeDocumentBookmarkData
         searchTask = Task.detached(priority: .utility) { [weak self] in
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
 
-            let output = Self.searchPDF(url: documentURL, bookmarkData: bookmarkData, query: trimmedQuery, limit: limit)
+            let output = Self.searchPDF(
+                url: activeDocumentURL,
+                bookmarkData: bookmarkData,
+                query: trimmedQuery,
+                limit: limit
+            )
 
             guard !Task.isCancelled else { return }
 
             await MainActor.run {
                 guard let self = self,
                       self.documentURL == documentURL,
+                      self.activeDocumentURL == activeDocumentURL,
                       self.searchText.trimmingCharacters(in: .whitespacesAndNewlines) == trimmedQuery else {
                     return
                 }
@@ -625,18 +647,26 @@ final class ReaderModel: NSObject, ObservableObject {
         )
     }
 
-    private func scheduleDocumentIndexing(loadID: UUID, url: URL, bookmarkData: Data?) {
+    private func scheduleDocumentIndexing(
+        loadID: UUID,
+        originalURL: URL,
+        originalBookmarkData: Data?,
+        processingURL: URL,
+        processingBookmarkData: Data?
+    ) {
         indexTask?.cancel()
-        let activeURL = url
+        let sourceURL = originalURL
+        let activeURL = processingURL
         indexTask = Task.detached(priority: .utility) { [weak self] in
-            let payload = Self.buildPDFIndexPayload(url: activeURL, bookmarkData: bookmarkData)
+            let payload = Self.buildPDFIndexPayload(url: activeURL, bookmarkData: processingBookmarkData)
 
             guard !Task.isCancelled else { return }
 
             await MainActor.run {
                 guard let self,
                       self.activeLoadID == loadID,
-                      self.documentURL == activeURL,
+                      self.documentURL == sourceURL,
+                      self.activeDocumentURL == activeURL,
                       !Task.isCancelled else {
                     return
                 }
@@ -645,7 +675,7 @@ final class ReaderModel: NSObject, ObservableObject {
                     self.displayTitle = payload.displayTitle
                     self.outlineItems = payload.outlineItems
                     self.mergeCachedPageTexts(payload.pageTexts)
-                    self.recents.add(url: activeURL, title: payload.displayTitle, bookmarkData: bookmarkData)
+                    self.recents.add(url: sourceURL, title: payload.displayTitle, bookmarkData: originalBookmarkData)
                 }
 
                 self.schedulePageTextCache(around: self.pageIndex)
@@ -657,14 +687,88 @@ final class ReaderModel: NSObject, ObservableObject {
     nonisolated private static func loadPDFPayload(url: URL, bookmarkData: Data?) -> LoadedPDFPayload? {
         withSecurityScopedFileAccess(url: url, bookmarkData: bookmarkData) { scopedURL in
             autoreleasepool {
-                guard let document = PDFDocument(url: scopedURL) else { return nil }
+                let processingURL = importPDFForReading(from: scopedURL) ?? scopedURL
+                let processingBookmarkData = processingURL == scopedURL ? bookmarkData : nil
+                guard let document = PDFDocument(url: processingURL) else { return nil }
                 return LoadedPDFPayload(
                     document: document,
                     displayTitle: resolvedFastDocumentTitle(for: document, url: scopedURL),
-                    pageCount: document.pageCount
+                    pageCount: document.pageCount,
+                    processingURL: processingURL,
+                    processingBookmarkData: processingBookmarkData
                 )
             }
         }
+    }
+
+    nonisolated private static func importPDFForReading(from sourceURL: URL) -> URL? {
+        guard sourceURL.isFileURL,
+              let destinationURL = importedPDFURL(for: sourceURL) else {
+            return nil
+        }
+
+        let fileManager = FileManager.default
+        let directoryURL = destinationURL.deletingLastPathComponent()
+        do {
+            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                let values = try? destinationURL.resourceValues(forKeys: [.fileSizeKey])
+                if (values?.fileSize ?? 0) > 0 {
+                    return destinationURL
+                }
+                try? fileManager.removeItem(at: destinationURL)
+            }
+
+            let temporaryURL = directoryURL.appendingPathComponent("\(UUID().uuidString).tmp")
+            try? fileManager.removeItem(at: temporaryURL)
+            try fileManager.copyItem(at: sourceURL, to: temporaryURL)
+            try fileManager.moveItem(at: temporaryURL, to: destinationURL)
+            return destinationURL
+        } catch {
+            return nil
+        }
+    }
+
+    nonisolated private static func importedPDFURL(for sourceURL: URL) -> URL? {
+        guard let supportURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+
+        let directoryURL = supportURL
+            .appendingPathComponent("ReadArc", isDirectory: true)
+            .appendingPathComponent("ImportedPDFs", isDirectory: true)
+        let baseName = sanitizedImportFileName(sourceURL.deletingPathExtension().lastPathComponent)
+        let fingerprint = importFingerprint(for: sourceURL)
+        return directoryURL.appendingPathComponent("\(baseName)-\(fingerprint).pdf")
+    }
+
+    nonisolated private static func sanitizedImportFileName(_ name: String) -> String {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-_")
+        let sanitized = name.unicodeScalars
+            .map { allowed.contains($0) ? String($0) : "-" }
+            .joined()
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-_"))
+
+        let fallback = sanitized.isEmpty ? "document" : sanitized
+        return String(fallback.prefix(64))
+    }
+
+    nonisolated private static func importFingerprint(for sourceURL: URL) -> String {
+        let values = try? sourceURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let size = values?.fileSize ?? -1
+        let modifiedAt = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
+        let rawFingerprint = "\(sourceURL.path)|\(size)|\(modifiedAt)"
+        return String(sha256Hex(rawFingerprint).prefix(16))
+    }
+
+    nonisolated private static func sha256Hex(_ value: String) -> String {
+        let digest = SHA256.hash(data: Data(value.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     nonisolated private static func buildPDFIndexPayload(url: URL, bookmarkData: Data?) -> PDFIndexPayload? {
@@ -922,14 +1026,14 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     private func schedulePageTextCache(around pageIndex: Int) {
-        guard let documentURL else { return }
+        guard let activeDocumentURL else { return }
         let candidateIndexes = [pageIndex - 1, pageIndex, pageIndex + 1]
             .filter { $0 >= 0 && $0 < pageCount && cachedText(at: $0) == nil }
         guard !candidateIndexes.isEmpty else { return }
 
         pageTextTask?.cancel()
-        let activeURL = documentURL
-        let bookmarkData = documentBookmarkData
+        let activeURL = activeDocumentURL
+        let bookmarkData = activeDocumentBookmarkData
         pageTextTask = Task.detached(priority: .utility) { [weak self] in
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
@@ -939,7 +1043,7 @@ final class ReaderModel: NSObject, ObservableObject {
 
             await MainActor.run {
                 guard let self,
-                      self.documentURL == activeURL,
+                      self.activeDocumentURL == activeURL,
                       !Task.isCancelled else {
                     return
                 }

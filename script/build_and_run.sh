@@ -109,6 +109,16 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$APP_NAME</string>
   <key>NSHumanReadableCopyright</key>
   <string>Copyright © 2026 Zanetach</string>
+  <key>NSDesktopFolderUsageDescription</key>
+  <string>ReadArc needs access to the PDF you choose so it can import a private reading copy.</string>
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>ReadArc needs access to the PDF you choose so it can import a private reading copy.</string>
+  <key>NSDownloadsFolderUsageDescription</key>
+  <string>ReadArc needs access to the PDF you choose so it can import a private reading copy.</string>
+  <key>NSNetworkVolumesUsageDescription</key>
+  <string>ReadArc needs access to PDFs you choose from network drives.</string>
+  <key>NSRemovableVolumesUsageDescription</key>
+  <string>ReadArc needs access to PDFs you choose from removable drives.</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

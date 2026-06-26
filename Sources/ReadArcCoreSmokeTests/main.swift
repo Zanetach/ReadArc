@@ -28,6 +28,7 @@ struct ReadArcCoreSmokeTests {
         failures.append(contentsOf: testAgentPromptIncludesBoundedCurrentPageContext())
         failures.append(contentsOf: testAgentPromptOmitsEmptyDocumentContext())
         failures.append(contentsOf: testAgentPromptDiscouragesRepeatedRecaps())
+        failures.append(contentsOf: testAgentPromptDoesNotExposeLocalPDFPath())
         failures.append(contentsOf: testElapsedDurationUsesSecondsForShortReplies())
         failures.append(contentsOf: testElapsedDurationUsesMinutesForLongReplies())
         failures.append(contentsOf: testAgentPromptIncludesDocumentPageMap())
@@ -94,7 +95,6 @@ struct ReadArcCoreSmokeTests {
             transcript: "User: Summarize this page.",
             pdfContext: AgentPDFContext(
                 title: "ReadArc Spec.pdf",
-                location: "/tmp",
                 pageCount: 12,
                 currentPageNumber: 4,
                 currentPageText: longText,
@@ -154,6 +154,30 @@ struct ReadArcCoreSmokeTests {
         return failures
     }
 
+    private static func testAgentPromptDoesNotExposeLocalPDFPath() -> [String] {
+        let prompt = AgentPromptBuilder.build(
+            userPrompt: "Summarize this PDF.",
+            transcript: "User: Summarize this PDF.",
+            pdfContext: AgentPDFContext(
+                title: "Private Plan.pdf",
+                pageCount: 3,
+                currentPageNumber: 1,
+                currentPageText: "Confidential onboarding notes.",
+                nearbyPageExcerpts: [],
+                outlineItems: []
+            )
+        )
+
+        var failures: [String] = []
+        if prompt.contains("/Users/") || prompt.contains("/tmp") || prompt.contains("Location:") {
+            failures.append("expected agent prompt to avoid exposing local PDF paths")
+        }
+        if !prompt.contains("do not access local files or folders") {
+            failures.append("expected prompt to tell the agent not to access local files")
+        }
+        return failures
+    }
+
     private static func testElapsedDurationUsesSecondsForShortReplies() -> [String] {
         let start = Date(timeIntervalSince1970: 10)
         let end = Date(timeIntervalSince1970: 11.42)
@@ -180,7 +204,6 @@ struct ReadArcCoreSmokeTests {
             transcript: "User: Analyze the whole document.",
             pdfContext: AgentPDFContext(
                 title: "ReadArc Spec.pdf",
-                location: "/tmp",
                 pageCount: 3,
                 currentPageNumber: 1,
                 currentPageText: "current page",

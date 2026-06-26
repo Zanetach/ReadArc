@@ -69,6 +69,8 @@ struct LoadedPDFPayload: @unchecked Sendable {
     let document: PDFDocument
     let displayTitle: String
     let pageCount: Int
+    let processingURL: URL
+    let processingBookmarkData: Data?
 }
 
 struct PDFIndexPayload: Sendable {
