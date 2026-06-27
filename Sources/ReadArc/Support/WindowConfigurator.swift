@@ -2,6 +2,9 @@ import AppKit
 import SwiftUI
 
 struct WindowConfigurator: NSViewRepresentable {
+    var keepsSingleMainWindow = true
+    var documentURL: URL?
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
@@ -34,7 +37,14 @@ struct WindowConfigurator: NSViewRepresentable {
         window.styleMask.insert(.resizable)
         window.minSize = NSSize(width: 680, height: 420)
         window.toolbar = nil
-        MainWindowRegistry.keepSingleMainWindow(window)
+
+        if keepsSingleMainWindow {
+            MainWindowRegistry.keepSingleMainWindow(window)
+        }
+
+        if let documentURL {
+            DocumentWindowManager.shared.registerDocumentWindow(documentURL, window: window)
+        }
 
         if ReferencePreviewMode.isEnabled {
             ReferenceWindowSizer.applyIfNeeded(to: window)

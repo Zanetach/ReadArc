@@ -5,6 +5,10 @@ enum RightPanelMode: String, CaseIterable, Identifiable {
     case focus
     case research
 
+    static var allCases: [RightPanelMode] {
+        [.chat, .research]
+    }
+
     var id: String {
         rawValue
     }

@@ -160,37 +160,35 @@ private struct SynthesisPanel: View {
             systemImage: "sparkles",
             trailing: "Copy",
             trailingAction: {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(currentSummary, forType: .string)
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(currentSummary, forType: .string)
             }
         ) {
             Text(model.hasDocument ? currentSummary : language.text("inspector.summary.empty.body"))
                 .font(.system(size: metrics.bodyFont, weight: .semibold))
                 .foregroundStyle(NativeProTheme.ink.opacity(0.84))
-                .lineLimit(metrics.width < 330 ? 4 : 3)
+                .lineLimit(metrics.width < 330 ? 6 : 5)
                 .fixedSize(horizontal: false, vertical: true)
             }
     }
 
-    private var currentHeadline: String {
-        if model.isSearching {
-            return language.text("inspector.summary.searching.title")
-        }
-        return model.searchResults.isEmpty
-            ? language.text("inspector.summary.ready.title")
-            : language.text("inspector.summary.results.title")
-    }
-
     private var currentSummary: String {
-        if model.isSearching {
-            return language.text("inspector.summary.searching.body")
+        if !model.documentSummaryExcerpt.isEmpty {
+            let pageNumber = model.documentSummaryPageNumber ?? max(model.pageIndex + 1, 1)
+            return String(format: language.text("inspector.summary.excerpt"), pageNumber, model.documentSummaryExcerpt)
         }
-        if model.searchResults.isEmpty {
-            return language.text("inspector.summary.ready.body")
+
+        if model.isLoadingDocument {
+            return language.text("inspector.summary.loading")
         }
-        return model.isSearchTruncated
-            ? String(format: language.text("inspector.summary.results.truncated"), model.searchResults.count)
-            : String(format: language.text("inspector.summary.results.body"), model.searchResults.count)
+
+        return String(
+            format: language.text("inspector.summary.metadata"),
+            model.documentTitle,
+            model.pageCount,
+            model.fileSizeLabel,
+            model.outlineItems.count
+        )
     }
 }
 
@@ -262,14 +260,15 @@ private struct OutlinePanel: View {
     @ObservedObject var model: ReaderModel
     @Environment(\.appLanguage) private var language
     @Environment(\.inspectorLayoutMetrics) private var metrics
+    @State private var showsAllItems = false
 
     var body: some View {
         InspectorPanel(
             title: "\(language.text("inspector.outline")) (\(model.outlineItems.count))",
             systemImage: "circle",
-            trailing: "View all",
+            trailing: model.outlineItems.count > collapsedItemCount ? (showsAllItems ? "Show less" : "View all") : nil,
             trailingAction: {
-            model.showResearch(tab: .outline)
+                showsAllItems.toggle()
             }
         ) {
             if model.outlineItems.isEmpty {
@@ -278,7 +277,7 @@ private struct OutlinePanel: View {
                     .foregroundStyle(NativeProTheme.muted)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(model.outlineItems.prefix(6)) { item in
+                    ForEach(visibleOutlineItems) { item in
                         Button {
                             model.goToOutlineItem(item)
                         } label: {
@@ -310,6 +309,14 @@ private struct OutlinePanel: View {
                 }
             }
         }
+    }
+
+    private var collapsedItemCount: Int {
+        6
+    }
+
+    private var visibleOutlineItems: ArraySlice<DocumentOutlineItem> {
+        showsAllItems ? model.outlineItems[...] : model.outlineItems.prefix(collapsedItemCount)
     }
 }
 

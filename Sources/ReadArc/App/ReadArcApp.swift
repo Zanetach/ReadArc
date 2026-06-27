@@ -4,7 +4,6 @@ import SwiftUI
 @main
 struct ReadArcApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var model = ReaderModel()
     @AppStorage("appearanceMode") private var appearanceModeRaw = AppAppearanceMode.system.rawValue
     @AppStorage("appLanguage") private var languageRaw = AppLanguage.system.rawValue
     @State private var systemColorScheme: ColorScheme = .light
@@ -23,33 +22,17 @@ struct ReadArcApp: App {
 
     var body: some Scene {
         WindowGroup("ReadArc") {
-            ContentView(model: model)
-                .frame(minWidth: 680, minHeight: 420)
-                .background(WindowConfigurator())
-                .environment(\.appLanguage, language)
-                .preferredColorScheme(resolvedColorScheme)
-                .onAppear {
-                    AppAppearanceController.apply(appearanceMode)
-                    refreshSystemColorScheme()
-                    AppAppearanceController.requestSystemAppearanceRefresh()
-                    LaunchSetupCoordinator.runIfNeeded()
-                }
-                .onChange(of: appearanceModeRaw) { _, _ in
-                    AppAppearanceController.apply(appearanceMode)
-                    refreshSystemColorScheme()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .readArcSystemAppearanceChanged)) { _ in
-                    AppAppearanceController.apply(appearanceMode)
-                    refreshSystemColorScheme()
-                }
-                .onOpenURL { url in
-                    model.openExternalFile(url)
-                }
+            ReaderWindowScene(
+                language: language,
+                resolvedColorScheme: resolvedColorScheme,
+                appearanceMode: appearanceMode,
+                refreshSystemColorScheme: refreshSystemColorScheme
+            )
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1280, height: 760)
         .commands {
-            ReadArcCommands(model: model, language: language)
+            ReadArcCommands(language: language)
         }
 
         Settings {
@@ -77,10 +60,62 @@ struct ReadArcApp: App {
     }
 }
 
+private struct ReaderWindowScene: View {
+    let language: AppLanguage
+    let resolvedColorScheme: ColorScheme
+    let appearanceMode: AppAppearanceMode
+    let refreshSystemColorScheme: () -> Void
+
+    @StateObject private var model = ReaderModel()
+
+    var body: some View {
+        ContentView(model: model)
+            .frame(minWidth: 680, minHeight: 420)
+            .background(WindowConfigurator(documentURL: model.documentURL))
+            .environment(\.appLanguage, language)
+            .preferredColorScheme(resolvedColorScheme)
+            .focusedObject(model)
+            .navigationTitle(model.documentTitle)
+            .onAppear {
+                configureDocumentWindowOpener()
+                AppAppearanceController.apply(appearanceMode)
+                refreshSystemColorScheme()
+                AppAppearanceController.requestSystemAppearanceRefresh()
+                LaunchSetupCoordinator.runIfNeeded()
+                openPendingExternalFiles()
+            }
+            .onChange(of: appearanceMode) { _, _ in
+                AppAppearanceController.apply(appearanceMode)
+                refreshSystemColorScheme()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .readArcSystemAppearanceChanged)) { _ in
+                AppAppearanceController.apply(appearanceMode)
+                refreshSystemColorScheme()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .readArcOpenFileRequested)) { _ in
+                openPendingExternalFiles()
+            }
+            .onOpenURL { url in
+                model.openDocumentsInWindows([url])
+            }
+    }
+
+    private func configureDocumentWindowOpener() {
+        model.setDocumentWindowOpener { url in
+            DocumentWindowManager.shared.openDocumentWindow(url)
+        }
+    }
+
+    private func openPendingExternalFiles() {
+        DocumentWindowManager.shared.openDocumentWindows(ExternalOpenRequestCenter.shared.drainPendingURLs())
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var appearanceObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         appearanceObserver = DistributedNotificationCenter.default().addObserver(
@@ -111,18 +146,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
-        ExternalOpenRequestCenter.shared.enqueue([URL(fileURLWithPath: filename)])
+        DocumentWindowManager.shared.openDocumentWindow(URL(fileURLWithPath: filename))
         return true
     }
 
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
-        ExternalOpenRequestCenter.shared.enqueue(filenames.map(URL.init(fileURLWithPath:)))
+        DocumentWindowManager.shared.openDocumentWindows(filenames.map(URL.init(fileURLWithPath:)))
         sender.reply(toOpenOrPrint: .success)
     }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        DocumentWindowManager.shared.openDocumentWindows(urls)
+    }
+
 }
 
 struct ReadArcCommands: Commands {
-    @ObservedObject var model: ReaderModel
+    @FocusedObject private var model: ReaderModel?
     let language: AppLanguage
 
     var body: some Commands {
@@ -138,81 +178,98 @@ struct ReadArcCommands: Commands {
 
         CommandGroup(replacing: .newItem) {
             Button("Open PDF...") {
-                model.openDocument()
+                if let model {
+                    model.openDocument()
+                } else {
+                    openDocumentsFromMenu()
+                }
             }
             .keyboardShortcut("o")
 
             Button("Reveal in Finder") {
-                model.revealDocumentInFinder()
+                model?.revealDocumentInFinder()
             }
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
 
             Divider()
 
             Button("Close PDF") {
-                model.closeDocument()
+                model?.closeDocument()
             }
             .keyboardShortcut("w")
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
         }
 
         CommandMenu("PDF") {
             Button(language.text("toolbar.firstPage")) {
-                model.send(.firstPage)
+                model?.send(.firstPage)
             }
             .keyboardShortcut(.upArrow, modifiers: [.command])
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
 
             Button(language.text("toolbar.previousPage")) {
-                model.send(.previousPage)
+                model?.send(.previousPage)
             }
             .keyboardShortcut(.leftArrow, modifiers: [])
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
 
             Button(language.text("toolbar.nextPage")) {
-                model.send(.nextPage)
+                model?.send(.nextPage)
             }
             .keyboardShortcut(.rightArrow, modifiers: [])
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
 
             Button(language.text("toolbar.lastPage")) {
-                model.send(.lastPage)
+                model?.send(.lastPage)
             }
             .keyboardShortcut(.downArrow, modifiers: [.command])
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
 
             Divider()
 
             Button(language.text("toolbar.zoomIn")) {
-                model.send(.zoomIn)
+                model?.send(.zoomIn)
             }
             .keyboardShortcut("+")
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
 
             Button(language.text("toolbar.zoomOut")) {
-                model.send(.zoomOut)
+                model?.send(.zoomOut)
             }
             .keyboardShortcut("-")
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
 
             Button(language.text("toolbar.actualSize")) {
-                model.send(.actualSize)
+                model?.send(.actualSize)
             }
             .keyboardShortcut("0")
-            .disabled(!model.hasDocument)
+            .disabled(model?.hasDocument != true)
 
             Divider()
 
-            Button(language.text(model.isInspectorVisible ? "toolbar.hidePanel" : "toolbar.showPanel")) {
-                model.toggleInspectorPanel()
+            Button(language.text(model?.isInspectorVisible == true ? "toolbar.hidePanel" : "toolbar.showPanel")) {
+                model?.toggleInspectorPanel()
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
 
             Button(language.text("toolbar.showChat")) {
-                model.showChat()
+                model?.showChat()
             }
             .keyboardShortcut("j", modifiers: [.command, .option])
         }
+    }
+
+    private func openDocumentsFromMenu() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.message = "Choose PDF documents to read."
+
+        guard panel.runModal() == .OK else { return }
+
+        DocumentWindowManager.shared.openDocumentWindows(panel.urls)
     }
 }
 

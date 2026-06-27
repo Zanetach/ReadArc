@@ -190,7 +190,7 @@ struct ContentView: View {
             return false
         }
 
-        model.openExternalFile(pdfURL)
+        model.openDocumentsInWindows([pdfURL])
         return true
     }
 

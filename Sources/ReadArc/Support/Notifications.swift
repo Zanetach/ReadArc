@@ -1,4 +1,5 @@
 import Foundation
+import ReadArcCore
 
 extension Notification.Name {
     static let readArcOpenFileRequested = Notification.Name("ReadArcOpenFileRequested")
@@ -13,7 +14,7 @@ final class ExternalOpenRequestCenter {
     private init() {}
 
     func enqueue(_ urls: [URL]) {
-        let pdfURLs = urls.filter { $0.pathExtension.lowercased() == "pdf" }
+        let pdfURLs = PDFOpenPlanner.documentWindowURLs(from: urls)
         guard !pdfURLs.isEmpty else { return }
 
         pendingURLs.append(contentsOf: pdfURLs)

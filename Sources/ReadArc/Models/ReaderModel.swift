@@ -31,6 +31,8 @@ final class ReaderModel: NSObject, ObservableObject {
     @Published var errorMessage: String?
     @Published var isLibraryOverlayVisible = false
     @Published var isSidebarVisible = false
+    @Published private(set) var documentSummaryExcerpt = ""
+    @Published private(set) var documentSummaryPageNumber: Int?
     @Published private(set) var panelState = ReaderPanelState.default
     @Published var selectedChatAgent: ChatAgentProvider = .codexCLI
     @Published var chatMessages: [ChatMessage] = []
@@ -47,6 +49,7 @@ final class ReaderModel: NSObject, ObservableObject {
     private var activeDocumentBookmarkData: Data?
     private var libraryFolderBookmarkData: Data?
     private var cachedPageTexts: [DocumentPageText] = []
+    private var requestDocumentWindow: ((URL) -> Void)?
     private let permissionPrimerDefaults = UserDefaults.standard
     nonisolated private static let maxSearchResultCount = 500
     nonisolated private static let minimumSearchLength = 2
@@ -56,6 +59,7 @@ final class ReaderModel: NSObject, ObservableObject {
     nonisolated private static let cachedPageTextLimit = 4_000
     nonisolated private static let maxSearchPageTextCharacters = 280_000
     nonisolated private static let maxSearchDurationSeconds: TimeInterval = 12
+    nonisolated private static let maxOutlineItemCount = 500
     nonisolated private static let fileAccessPrimerSeenKey = "readArcFileAccessPrimerSeen"
     nonisolated private static let libraryFolderPromptSeenKey = "readArcLibraryFolderPromptSeen"
     nonisolated private static let libraryFolderURLKey = "readArcLibraryFolderURL"
@@ -141,13 +145,6 @@ final class ReaderModel: NSObject, ObservableObject {
     override init() {
         super.init()
         restoreLibraryFolder()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleOpenFileRequest(_:)),
-            name: .readArcOpenFileRequested,
-            object: nil
-        )
-        openPendingExternalFiles()
     }
 
     deinit {
@@ -155,7 +152,10 @@ final class ReaderModel: NSObject, ObservableObject {
         indexTask?.cancel()
         searchTask?.cancel()
         pageTextTask?.cancel()
-        NotificationCenter.default.removeObserver(self)
+    }
+
+    func setDocumentWindowOpener(_ opener: @escaping (URL) -> Void) {
+        requestDocumentWindow = opener
     }
 
     func openDocument() {
@@ -163,14 +163,14 @@ final class ReaderModel: NSObject, ObservableObject {
 
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.pdf]
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.message = "Choose a PDF document to read."
         panel.directoryURL = libraryFolderURL
 
-        if panel.runModal() == .OK, let url = panel.url {
-            openExternalFile(url)
+        if panel.runModal() == .OK {
+            openDocumentsInWindows(panel.urls)
         }
     }
 
@@ -364,6 +364,8 @@ final class ReaderModel: NSObject, ObservableObject {
         searchResults = []
         selectedSearchIndex = nil
         outlineItems = []
+        documentSummaryExcerpt = ""
+        documentSummaryPageNumber = nil
         documentBookmarkData = bookmarkData
         activeDocumentURL = nil
         activeDocumentBookmarkData = nil
@@ -404,6 +406,8 @@ final class ReaderModel: NSObject, ObservableObject {
                 self.scaleFactor = 1
                 self.outlineItems = []
                 self.cachedPageTexts = []
+                self.documentSummaryExcerpt = ""
+                self.documentSummaryPageNumber = nil
                 self.isLibraryOverlayVisible = false
                 self.isSidebarVisible = false
                 self.setPanelState(
@@ -428,7 +432,11 @@ final class ReaderModel: NSObject, ObservableObject {
     }
 
     func openRecent(_ recent: RecentDocument) {
-        openPDF(url: recent.url, bookmarkData: recent.bookmarkData)
+        if hasDocument {
+            openDocumentInWindow(recent.url)
+        } else {
+            openPDF(url: recent.url, bookmarkData: recent.bookmarkData)
+        }
     }
 
     func openExternalFile(_ url: URL) {
@@ -441,10 +449,42 @@ final class ReaderModel: NSObject, ObservableObject {
         promptForLibraryFolderIfNeeded()
 
         if let libraryDocument = importPDFIntoLibraryIfPossible(from: url, bookmarkData: sourceBookmarkData) {
+            guard !isCurrentDocument(libraryDocument.url) else { return }
             load(url: libraryDocument.url, bookmarkData: libraryDocument.bookmarkData)
         } else {
+            guard !isCurrentDocument(url) else { return }
             load(url: url, bookmarkData: sourceBookmarkData)
         }
+    }
+
+    func openDocumentsInWindows(_ urls: [URL]) {
+        let pdfURLs = PDFOpenPlanner.uniqueDocumentWindowURLs(from: urls)
+        guard !pdfURLs.isEmpty else { return }
+
+        if !hasDocument, let firstURL = pdfURLs.first {
+            openExternalFile(firstURL)
+            pdfURLs.dropFirst().forEach(openDocumentInWindow)
+        } else {
+            pdfURLs.forEach(openDocumentInWindow)
+        }
+    }
+
+    func openDocumentInWindow(_ url: URL) {
+        guard !isCurrentDocument(url) else {
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        if let requestDocumentWindow {
+            requestDocumentWindow(url)
+        } else {
+            openExternalFile(url)
+        }
+    }
+
+    private func isCurrentDocument(_ url: URL) -> Bool {
+        guard let documentURL else { return false }
+        return PDFOpenPlanner.documentWindowKey(for: documentURL) == PDFOpenPlanner.documentWindowKey(for: url)
     }
 
     func removeRecent(_ recent: RecentDocument) {
@@ -503,6 +543,8 @@ final class ReaderModel: NSObject, ObservableObject {
         isSearching = false
         isSearchTruncated = false
         outlineItems = []
+        documentSummaryExcerpt = ""
+        documentSummaryPageNumber = nil
         documentBookmarkData = nil
         activeDocumentURL = nil
         activeDocumentBookmarkData = nil
@@ -1253,6 +1295,38 @@ final class ReaderModel: NSObject, ObservableObject {
         cachedPageTexts = byPageIndex.values
             .sorted { $0.pageIndex < $1.pageIndex }
         trimCachedPageTexts()
+        refreshDocumentSummaryExcerpt()
+    }
+
+    private func refreshDocumentSummaryExcerpt() {
+        guard let preview = Self.summaryExcerpt(from: cachedPageTexts) else {
+            documentSummaryExcerpt = ""
+            documentSummaryPageNumber = nil
+            return
+        }
+
+        documentSummaryExcerpt = preview.text
+        documentSummaryPageNumber = preview.pageNumber
+    }
+
+    nonisolated private static func summaryExcerpt(from pageTexts: [DocumentPageText]) -> (text: String, pageNumber: Int)? {
+        for pageText in pageTexts.sorted(by: { $0.pageIndex < $1.pageIndex }) {
+            let normalized = pageText.text
+                .replacingOccurrences(of: "\u{00a0}", with: " ")
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !normalized.isEmpty else { continue }
+
+            let limit = 220
+            if normalized.count > limit {
+                let end = normalized.index(normalized.startIndex, offsetBy: limit)
+                return (String(normalized[..<end]).trimmingCharacters(in: .whitespacesAndNewlines) + "...", pageText.pageNumber)
+            }
+
+            return (normalized, pageText.pageNumber)
+        }
+
+        return nil
     }
 
     private func trimCachedPageTexts() {
@@ -1297,34 +1371,35 @@ final class ReaderModel: NSObject, ObservableObject {
     nonisolated private static func buildOutlineItems(for document: PDFDocument) -> [DocumentOutlineItem] {
         guard let outlineRoot = document.outlineRoot else { return [] }
         var items: [DocumentOutlineItem] = []
-        collectOutlineItems(from: outlineRoot, document: document, depth: 0, into: &items)
-        return Array(items.prefix(80))
+        collectOutlineItems(from: outlineRoot, document: document, depth: 0, path: [], into: &items)
+        return items
     }
 
     nonisolated private static func collectOutlineItems(
         from outline: PDFOutline,
         document: PDFDocument,
         depth: Int,
+        path: [Int],
         into items: inout [DocumentOutlineItem]
     ) {
         for index in 0..<outline.numberOfChildren {
+            guard items.count < Self.maxOutlineItemCount else { return }
             guard let child = outline.child(at: index) else { continue }
+            let childPath = path + [index]
             let pageIndex = child.destination?.page.flatMap { page in
                 document.index(for: page)
             }
 
             items.append(
                 DocumentOutlineItem(
-                    id: "\(depth)-\(index)-\(child.label ?? "Outline")",
+                    id: childPath.map(String.init).joined(separator: "."),
                     title: child.label ?? "Untitled",
                     pageIndex: pageIndex,
                     depth: depth
                 )
             )
 
-            if depth < 2 {
-                collectOutlineItems(from: child, document: document, depth: depth + 1, into: &items)
-            }
+            collectOutlineItems(from: child, document: document, depth: depth + 1, path: childPath, into: &items)
         }
     }
 
@@ -1423,20 +1498,6 @@ final class ReaderModel: NSObject, ObservableObject {
         let match = pageText[range]
         let suffix = pageText[range.upperBound...].prefix(58)
         return excerpt(from: "\(prefix)\(match)\(suffix)", fallback: fallback)
-    }
-
-    @objc private func handleOpenFileRequest(_ notification: Notification) {
-        if let url = notification.object as? URL {
-            openExternalFile(url)
-            return
-        }
-
-        openPendingExternalFiles()
-    }
-
-    private func openPendingExternalFiles() {
-        guard let url = ExternalOpenRequestCenter.shared.drainPendingURLs().last else { return }
-        openExternalFile(url)
     }
 
     private func fileExistsForReading(url: URL, bookmarkData: Data?) -> Bool {

@@ -26,6 +26,8 @@ struct ReadArcCoreSmokeTests {
         failures.append(contentsOf: testAddStoresRecognizedDocumentTitle())
         failures.append(contentsOf: testLimitKeepsMostRecentDocuments())
         failures.append(contentsOf: testRemoveRecentDocumentByURL())
+        failures.append(contentsOf: testPDFOpenPlannerPreservesMultipleDocuments())
+        failures.append(contentsOf: testPDFOpenPlannerDeduplicatesSameDocument())
         failures.append(contentsOf: testAgentPromptIncludesBoundedCurrentPageContext())
         failures.append(contentsOf: testAgentPromptOmitsEmptyDocumentContext())
         failures.append(contentsOf: testAgentPromptDiscouragesRepeatedRecaps())
@@ -108,6 +110,30 @@ struct ReadArcCoreSmokeTests {
         return reloaded.documents.map(\.url) == [active]
             ? []
             : ["expected removed recent document URL to stay removed after reload"]
+    }
+
+    private static func testPDFOpenPlannerPreservesMultipleDocuments() -> [String] {
+        let first = URL(fileURLWithPath: "/tmp/first.pdf")
+        let notes = URL(fileURLWithPath: "/tmp/notes.txt")
+        let second = URL(fileURLWithPath: "/tmp/second.PDF")
+
+        let plannedURLs = PDFOpenPlanner.documentWindowURLs(from: [first, notes, second])
+
+        return plannedURLs == [first, second]
+            ? []
+            : ["expected PDF open planner to preserve every PDF document as a separate window request"]
+    }
+
+    private static func testPDFOpenPlannerDeduplicatesSameDocument() -> [String] {
+        let first = URL(fileURLWithPath: "/tmp/ReadArc/../ReadArc/spec.pdf")
+        let duplicate = URL(fileURLWithPath: "/tmp/ReadArc/spec.pdf")
+        let second = URL(fileURLWithPath: "/tmp/ReadArc/brief.PDF")
+
+        let plannedURLs = PDFOpenPlanner.uniqueDocumentWindowURLs(from: [first, duplicate, second])
+
+        return plannedURLs == [first.standardizedFileURL, second.standardizedFileURL]
+            ? []
+            : ["expected PDF open planner to deduplicate the same standardized PDF document"]
     }
 
     private static func testAgentPromptIncludesBoundedCurrentPageContext() -> [String] {
