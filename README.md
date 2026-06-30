@@ -24,8 +24,8 @@ ReadArc 是一个基于 `SwiftUI` + `PDFKit` 的原生 macOS PDF 阅读器。它
 
 | 项目 | 当前状态 |
 | --- | --- |
-| Release | `v0.2.12` |
-| Artifact | `ReadArc-0.2.12-macOS-arm64.dmg` |
+| Release | `v0.2.14` |
+| Artifact | `ReadArc-0.2.14-macOS-arm64.dmg` |
 | 系统 | macOS 14 或更高 |
 | 芯片 | Apple Silicon |
 | 签名 | Ad-hoc signed, not notarized |
@@ -143,13 +143,13 @@ swift build -c release --build-system native
 生成本地 Apple Silicon DMG：
 
 ```bash
-./script/release_github.sh --version 0.2.12 --ad-hoc --skip-notary --format dmg
+./script/release_github.sh --version 0.2.14 --ad-hoc --skip-notary --format dmg
 ```
 
 发布 ad-hoc Apple Silicon DMG 到 GitHub Release：
 
 ```bash
-./script/release_github.sh --version 0.2.12 --publish --ready --ad-hoc --skip-notary --format dmg
+./script/release_github.sh --version 0.2.14 --publish --ready --ad-hoc --skip-notary --format dmg
 ```
 
 如果已经配置 Developer ID 和 notary profile，可以生成正式签名并公证的发布包：
@@ -157,7 +157,7 @@ swift build -c release --build-system native
 ```bash
 READARC_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 READARC_NOTARY_PROFILE="readarc-notary" \
-./script/release_github.sh --version 0.2.12 --publish --ready --format dmg
+./script/release_github.sh --version 0.2.14 --publish --ready --format dmg
 ```
 
 ## 压力测试 PDF

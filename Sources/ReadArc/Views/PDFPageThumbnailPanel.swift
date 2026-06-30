@@ -213,19 +213,34 @@ private struct ThumbnailPanelMetrics {
     var filterBottomPadding: CGFloat { 8 + scale * 3 }
     var contentPadding: CGFloat { 12 + scale * 6 }
     var thumbnailTopPadding: CGFloat { 6 + scale * 3 }
-    var thumbnailRowSpacing: CGFloat { 10 + scale * 3 }
+    var thumbnailRowSpacing: CGFloat { 22 + scale * 10 }
     var rowHorizontalPadding: CGFloat { 8 + scale * 8 }
-    var rowVerticalPadding: CGFloat { 7 + scale * 2 }
+    var rowVerticalPadding: CGFloat { 12 + scale * 6 }
     var rowGap: CGFloat { 9 + scale * 5 }
-    var pageLabelWidth: CGFloat { 24 + scale * 8 }
+    var pageLabelWidth: CGFloat { 32 + scale * 8 }
     var pageLabelFont: CGFloat { 14 + scale * 2 }
     var thumbnailMinWidth: CGFloat { 116 + scale * 24 }
     var thumbnailMinHeight: CGFloat { 72 + scale * 16 }
     var thumbnailAspect: CGFloat { 0.58 }
     var thumbnailCornerRadius: CGFloat { 10 + scale * 2 }
     var rowCornerRadius: CGFloat { 13 + scale * 2 }
-    var rowHeight: CGFloat { 112 + scale * 24 }
     var emptyHeight: CGFloat { 200 + scale * 40 }
+
+    var listContentWidth: CGFloat {
+        max(1, width - contentPadding * 2)
+    }
+
+    func thumbnailWidth(forRowWidth rowWidth: CGFloat) -> CGFloat {
+        max(thumbnailMinWidth, rowWidth - rowHorizontalPadding * 2 - pageLabelWidth - rowGap)
+    }
+
+    func thumbnailHeight(forThumbnailWidth thumbnailWidth: CGFloat) -> CGFloat {
+        max(thumbnailMinHeight, thumbnailWidth * thumbnailAspect)
+    }
+
+    func rowHeight(forThumbnailHeight thumbnailHeight: CGFloat) -> CGFloat {
+        thumbnailHeight + rowVerticalPadding * 2
+    }
 }
 
 private enum ThumbnailFilter {
@@ -262,39 +277,46 @@ private struct PDFPageThumbnailButton: View {
     let action: () -> Void
     @State private var image: NSImage?
     @State private var didFailToRender = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        GeometryReader { proxy in
-            let thumbnailWidth = max(metrics.thumbnailMinWidth, proxy.size.width - metrics.rowHorizontalPadding * 2 - metrics.pageLabelWidth - metrics.rowGap)
-            let thumbnailHeight = max(metrics.thumbnailMinHeight, thumbnailWidth * metrics.thumbnailAspect)
+        let rowWidth = metrics.listContentWidth
+        let thumbnailWidth = metrics.thumbnailWidth(forRowWidth: rowWidth)
+        let thumbnailHeight = metrics.thumbnailHeight(forThumbnailWidth: thumbnailWidth)
+        let rowHeight = metrics.rowHeight(forThumbnailHeight: thumbnailHeight)
 
-            Button(action: action) {
-                HStack(spacing: metrics.rowGap) {
-                    Text("\(pageIndex + 1)")
-                        .font(.system(size: metrics.pageLabelFont, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(isSelected ? NativeProTheme.accent : NativeProTheme.muted)
-                        .frame(width: metrics.pageLabelWidth, alignment: .leading)
+        Button(action: action) {
+            HStack(spacing: metrics.rowGap) {
+                Text("\(pageIndex + 1)")
+                    .font(.system(size: metrics.pageLabelFont, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(isSelected ? NativeProTheme.accent : NativeProTheme.muted)
+                    .frame(width: metrics.pageLabelWidth, height: metrics.pageLabelWidth)
+                    .background(
+                        pageNumberBackground,
+                        in: RoundedRectangle(cornerRadius: metrics.pageLabelWidth * 0.34, style: .continuous)
+                    )
 
-                    thumbnail
-                        .frame(width: thumbnailWidth, height: thumbnailHeight)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: metrics.thumbnailCornerRadius, style: .continuous))
-                        .clipShape(RoundedRectangle(cornerRadius: metrics.thumbnailCornerRadius, style: .continuous))
-                        .shadow(color: NativeProTheme.surfaceShadow.opacity(0.34), radius: 10, x: 0, y: 5)
-                }
-                .padding(.horizontal, metrics.rowHorizontalPadding)
-                .padding(.vertical, metrics.rowVerticalPadding)
-                .frame(width: proxy.size.width, alignment: .leading)
-                .readArcGlass(
-                    in: RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous),
-                    fallbackColor: isSelected ? NativeProTheme.selection.opacity(0.44) : Color.clear,
-                    strokeColor: isSelected ? NativeProTheme.accent : .clear,
-                    isInteractive: true
-                )
-                .contentShape(RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous))
+                thumbnail
+                    .frame(width: thumbnailWidth, height: thumbnailHeight)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: metrics.thumbnailCornerRadius, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: metrics.thumbnailCornerRadius, style: .continuous))
+                    .shadow(color: NativeProTheme.surfaceShadow.opacity(colorScheme == .light ? 0.14 : 0.30), radius: 9, x: 0, y: 4)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, metrics.rowHorizontalPadding)
+            .padding(.vertical, metrics.rowVerticalPadding)
+            .frame(width: rowWidth, height: rowHeight, alignment: .leading)
+            .readArcGlass(
+                in: RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous),
+                fallbackColor: rowBackground,
+                strokeColor: rowStroke,
+                isInteractive: true,
+                fallbackStrokeWidth: isSelected ? 1.8 : 1.1
+            )
+            .shadow(color: rowShadow, radius: isSelected ? 10 : 7, x: 0, y: isSelected ? 5 : 3)
+            .contentShape(RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous))
         }
-        .frame(height: metrics.rowHeight)
+        .buttonStyle(.plain)
+        .frame(width: rowWidth, height: rowHeight)
         .task(id: thumbnailTaskID) {
             await renderThumbnailIfNeeded()
         }
@@ -304,6 +326,43 @@ private struct PDFPageThumbnailButton: View {
                 didFailToRender = false
             }
         }
+    }
+
+    private var rowBackground: Color {
+        if isSelected {
+            return NativeProTheme.selection.opacity(colorScheme == .light ? 0.74 : 0.92)
+        }
+        if colorScheme == .light {
+            return Color(red: 0.930, green: 0.955, blue: 0.988).opacity(0.96)
+        }
+        return NativeProTheme.tile.opacity(0.86)
+    }
+
+    private var rowStroke: Color {
+        if isSelected {
+            return NativeProTheme.accent
+        }
+        if colorScheme == .light {
+            return Color(red: 0.680, green: 0.760, blue: 0.890).opacity(0.58)
+        }
+        return NativeProTheme.separator.opacity(0.95)
+    }
+
+    private var rowShadow: Color {
+        if colorScheme == .light {
+            return Color(red: 0.160, green: 0.300, blue: 0.520).opacity(isSelected ? 0.12 : 0.070)
+        }
+        return Color.black.opacity(isSelected ? 0.28 : 0.18)
+    }
+
+    private var pageNumberBackground: Color {
+        if isSelected {
+            return NativeProTheme.accent.opacity(colorScheme == .light ? 0.13 : 0.24)
+        }
+        if colorScheme == .light {
+            return Color.white.opacity(0.74)
+        }
+        return Color.white.opacity(0.055)
     }
 
     @ViewBuilder
